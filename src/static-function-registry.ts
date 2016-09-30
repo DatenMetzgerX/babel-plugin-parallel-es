@@ -1,64 +1,54 @@
 import * as t from "babel-types";
 import {NodePath} from "babel-traverse";
-
-export type FunctionNode = t.FunctionExpression | t.FunctionDeclaration | t.ArrowFunctionExpression;
-
-export interface IFunctionRegistration {
-    identifier: string,
-    node: FunctionNode
-}
-
-/**
- * Registry that stores the functions for a single module
- */
-export class ModuleFunctionsRegistry {
-    private functions = new Map<string, IFunctionRegistration>();
-    constructor(public fileName: string, public code: string) {
-    }
-
-    registerFunction(path: NodePath<FunctionNode>) {
-        const key = path.getPathLocation();
-        let registration = this.functions.get(key);
-        if (!registration) {
-            registration = { identifier: `static-${this.fileName}#${key}`, node: path.node };
-            this.functions.set(key, registration);
-        }
-
-        return registration;
-    }
-
-    public getFunctions() {
-        return Array.from(this.functions.values());
-    }
-}
+import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {FunctionNode, IFunctionRegistration} from "./function-registration";
 
 export class StaticFunctionRegistry {
-    private functions = new Map<string, ModuleFunctionsRegistry>();
+
+    public version = 0;
+
+    public get modules() {
+        return Array.from(this.modulesLookupTable.values());
+    }
+
+    private modulesLookupTable = new Map<string, ModuleFunctionsRegistry>();
 
     constructor() {}
 
-    registerStaticFunction(functionPath: NodePath<FunctionNode>) : IFunctionRegistration {
-        functionPath.assertFunction();
-
-        const module = this.getModule(functionPath);
-        return module.registerFunction(functionPath);
+    /**
+     * Removes the given module from the registry
+     * @param name file name of the module to remove
+     * @returns true if the module has been removed, false if it was not registered at all
+     */
+    public remove(name: string): boolean {
+        ++this.version;
+        return this.modulesLookupTable.delete(name);
     }
 
-    private getModule(path: NodePath<any>) {
-        const filename = path.hub.file.opts.filename;
-        let map = this.functions.get(filename);
-        if (!map) {
-            map = new ModuleFunctionsRegistry(filename, path.hub.file.code);
-            this.functions.set(filename, map);
-        }
-        return map;
+    /**
+     * Registers the given module
+     * @param module the module to register
+     */
+    public add(module: ModuleFunctionsRegistry): void {
+        ++this.version;
+        this.modulesLookupTable.set(module.fileName, module);
     }
 
-    getFunctions() {
-        return Array.from(this.functions.values()).map(module => ({
-            filename: module.fileName,
-            code: module.code,
-            functions: module.getFunctions()
-        }));
+    /**
+     * Tests if the given module is registered
+     * @param name the name of the module
+     * @returns {boolean} true if the module is registered
+     */
+    public has(name: String): boolean {
+        return this.modulesLookupTable.has(name);
+    }
+
+    /**
+     * Returns the module with the given name
+     * @param name the file name of the module to lookup
+     * @returns the resolved module registry or undefined
+     */
+    public get(name: String): ModuleFunctionsRegistry | undefined {
+        return this.modulesLookupTable.get(name);
     }
 }
