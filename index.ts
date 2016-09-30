@@ -1,10 +1,10 @@
-import {StaticFunctionRegistry} from "./src/static-function-registry";
+import {ModulesUsingParallelRegistry} from "./src/modules-using-parallel-registry";
 import {BabylonOptions} from "babylon";
-import {ParallelESVisitor} from "./src/visitor";
+import {ParallelFunctorsExtractorVisitor} from "./src/parallel-functors-extractor-visitor";
 import {Visitor} from "babel-traverse";
 import {TransformOptions} from "babel-core";
 
-export const registry = new StaticFunctionRegistry();
+export const registry = new ModulesUsingParallelRegistry();
 
 export interface IBabelPlugin {
     visitor: Visitor;
@@ -18,6 +18,6 @@ export default function (): IBabelPlugin {
             parserOptions.sourceFilename = options.filename;
         },
 
-        visitor: ParallelESVisitor(registry)
+        visitor: ParallelFunctorsExtractorVisitor(registry)
     };
 };

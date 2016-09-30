@@ -1,9 +1,20 @@
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
 
-export class StaticFunctionRegistry {
+/**
+ * Registry that stores all modules that pass a functor to {@code parallel.*}.
+ */
+export class ModulesUsingParallelRegistry {
 
+    /**
+     * The version of the current state. The version changes every time a module has been added, removed or changed.
+     * @type {number} the current version
+     */
     public version = 0;
 
+    /**
+     * Returns the registered modules
+     * @returns the modules
+     */
     public get modules() {
         return Array.from(this.modulesLookupTable.values());
     }
@@ -26,7 +37,8 @@ export class StaticFunctionRegistry {
      */
     public add(module: ModuleFunctionsRegistry): void {
         ++this.version;
-        this.modulesLookupTable.set(module.fileName, module);
+        const freezed = Object.freeze(module);
+        this.modulesLookupTable.set(module.fileName, freezed);
     }
 
     /**

@@ -1,7 +1,7 @@
 import * as t from "babel-types";
 import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
-import {StaticFunctionRegistry} from "./static-function-registry";
+import {ModulesUsingParallelRegistry} from "./modules-using-parallel-registry";
 
 function getParallelObject(path: NodePath<any>): NodePath<t.Identifier> | undefined {
     if (path.getData("parallelObject")) {
@@ -64,6 +64,8 @@ const StatefulVisitor: Visitor = {
                 return;
             }
 
+            path.debug(() => `Found invocation of parallel method ${methodName}`);
+
             if (methodName === "map") {
                 const mapper: NodePath<t.Node> | undefined = path.node.arguments.length > 0 ? path.get("arguments.0") : undefined;
                 if (mapper) {
@@ -92,7 +94,12 @@ const StatefulVisitor: Visitor = {
     }
 };
 
-export function ParallelESVisitor (staticFunctionRegistry: StaticFunctionRegistry): Visitor {
+/**
+ * Creates a new babel-plugin that extract all functors passed to parallel.* and registers them in the passed in registry
+ * @param staticFunctionRegistry the registry into which the modules with the functors should be registered
+ * @returns the babel plugin instance
+ */
+export function ParallelFunctorsExtractorVisitor (staticFunctionRegistry: ModulesUsingParallelRegistry): Visitor {
 
     return {
         Program(path: NodePath<t.Program>) {

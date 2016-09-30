@@ -14,11 +14,10 @@
     "sourceMap": true,
     "lib": ["es6"]
   },
-  "files": [
-    "index.ts"
-  ],
   "include": [
-    "src/**/*.ts"
+    "index.ts",
+    "src/**/*.ts",
+    "test/**/*.ts"
   ],
   "exclude": [
     "node_modules"
