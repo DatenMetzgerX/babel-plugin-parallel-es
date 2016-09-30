@@ -1,6 +1,17 @@
+import {expect} from "chai";
+import {ModulesUsingParallelRegistry} from "../src/modules-using-parallel-registry";
+
 describe("ModulesUsingParallelRegistry", function () {
+    let registry: ModulesUsingParallelRegistry;
+
+    beforeEach(function () {
+        registry = new ModulesUsingParallelRegistry();
+    });
+
     describe("version", function () {
-        it("returns the current version");
+        it("is 0 by default", function () {
+            expect(registry.version).to.equal(0);
+        });
     });
 
     describe("modules", function () {
