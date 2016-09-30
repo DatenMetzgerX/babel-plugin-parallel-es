@@ -9,6 +9,7 @@ function getParallelObject(path: NodePath<any>): NodePath<t.Identifier> | undefi
     }
 
     if (path.isIdentifier()) {
+        //  todo store parallel flag on identifier to avoid lookup
         const binding = path.scope.getBinding(path.node.name);
 
         if (binding) {
@@ -18,9 +19,6 @@ function getParallelObject(path: NodePath<any>): NodePath<t.Identifier> | undefi
                 if (importStatement.source.value === "parallel-es") {
                     return binding.path.get("identifier") as NodePath<t.Identifier>;
                 }
-            } else if (binding.path.isVariableDeclarator() && t.isCallExpression(binding.path.node.init)) {
-                const init = binding.path.node.init;
-                return t.isCallExpression(init) && t.isIdentifier(init.callee) && init.arguments.length > 0 && t.isStringLiteral(init.arguments[0]) && init.arguments[0].value === "parallel-es";
             }
         }
     }
@@ -66,21 +64,22 @@ const StatefulVisitor: Visitor = {
                 return;
             }
 
-            console.log(methodName);
             if (methodName === "map") {
-                const mapper: NodePath<any> = path.node.arguments.length > 0 ? path.get("arguments")[0] : undefined;
+                const mapper: NodePath<t.Node> | undefined = path.node.arguments.length > 0 ? path.get("arguments.0") : undefined;
                 if (mapper) {
                     let mapperDeclaration: NodePath<t.FunctionDeclaration | t.ArrowFunctionExpression | t.FunctionExpression>;
-                    if (t.isIdentifier(mapper)) {
-                        const binding = path.scope.getBinding((mapper.node as t.Identifier).name);
-                        mapperDeclaration = binding.path;
-                    } else if (t.isFunctionExpression(mapper) || t.isArrowFunctionExpression(mapper)) {
-                        mapperDeclaration = mapper.node;
+                    if (t.isIdentifier(mapper.node)) {
+                        const binding = path.scope.getBinding(mapper.node.name);
+                        // TODO handle case where this might be an identifier referencing a function expression or arrow expression or another variable or what ever.
+                        binding.path.assertFunctionDeclaration();
+
+                        mapperDeclaration = binding.path as NodePath<t.FunctionDeclaration>;
+                    } else if (t.isFunctionExpression(mapper.node) || t.isArrowFunctionExpression(mapper.node)) {
+                        mapperDeclaration = mapper as NodePath<t.FunctionExpression | t.ArrowFunctionExpression>;
                     } else {
                         throw new Error("unknown mapper function type");
                     }
 
-                    console.log("Register Location", mapperDeclaration.node.loc);
                     const registration = moduleFunctionRegistry.registerFunction(mapperDeclaration);
 
                     mapper.replaceWith(t.objectExpression([
@@ -93,7 +92,7 @@ const StatefulVisitor: Visitor = {
     }
 };
 
-export function ParallelESVisitor (staticFunctionRegistry: StaticFunctionRegistry) {
+export function ParallelESVisitor (staticFunctionRegistry: StaticFunctionRegistry): Visitor {
 
     return {
         Program(path: NodePath<t.Program>) {

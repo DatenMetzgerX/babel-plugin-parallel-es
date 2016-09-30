@@ -1,7 +1,4 @@
-import * as t from "babel-types";
-import {NodePath} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
-import {FunctionNode, IFunctionRegistration} from "./function-registration";
 
 export class StaticFunctionRegistry {
 
@@ -12,8 +9,6 @@ export class StaticFunctionRegistry {
     }
 
     private modulesLookupTable = new Map<string, ModuleFunctionsRegistry>();
-
-    constructor() {}
 
     /**
      * Removes the given module from the registry
@@ -39,7 +34,7 @@ export class StaticFunctionRegistry {
      * @param name the name of the module
      * @returns {boolean} true if the module is registered
      */
-    public has(name: String): boolean {
+    public has(name: string): boolean {
         return this.modulesLookupTable.has(name);
     }
 
@@ -48,7 +43,7 @@ export class StaticFunctionRegistry {
      * @param name the file name of the module to lookup
      * @returns the resolved module registry or undefined
      */
-    public get(name: String): ModuleFunctionsRegistry | undefined {
+    public get(name: string): ModuleFunctionsRegistry | undefined {
         return this.modulesLookupTable.get(name);
     }
 }

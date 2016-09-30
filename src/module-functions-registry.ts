@@ -1,23 +1,23 @@
 import {NodePath} from "babel-traverse";
-import {FunctionNode, IFunctionRegistration} from "./static-function-registry";
+import {IFunctionRegistration, FunctionNode} from "./function-registration";
 /**
  * Registry that stores the functions for a single module
  */
 export class ModuleFunctionsRegistry {
     private functionsRegistry = new Map<string, IFunctionRegistration>();
 
-    get functions() {
+    public get functions() {
         return Array.from(this.functionsRegistry.values());
     }
 
-    get empty() {
+    public get empty() {
         return this.functionsRegistry.size === 0;
     }
 
     constructor(public fileName: string, public code: string, public map?: Object) {
     }
 
-    registerFunction(path: NodePath<FunctionNode>) {
+    public registerFunction(path: NodePath<FunctionNode>) {
         path.assertFunction();
 
         const key = path.getPathLocation();
