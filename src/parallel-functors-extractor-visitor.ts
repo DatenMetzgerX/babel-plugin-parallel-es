@@ -3,6 +3,8 @@ import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
 import {ModulesUsingParallelRegistry} from "./modules-using-parallel-registry";
 
+const PARALLEL_MODULE_NAME = "parallel-es";
+
 function getParallelObject(path: NodePath<any>): NodePath<t.Identifier> | undefined {
     if (path.getData("parallelObject")) {
         return path.getData("parallelObject");
@@ -13,11 +15,21 @@ function getParallelObject(path: NodePath<any>): NodePath<t.Identifier> | undefi
         const binding = path.scope.getBinding(path.node.name);
 
         if (binding) {
+            // import parallel from ...
             if (binding.path.isImportDefaultSpecifier()) {
                 const importStatement = binding.path.parent as t.ImportDeclaration;
 
-                if (importStatement.source.value === "parallel-es") {
+                if (importStatement.source.value === PARALLEL_MODULE_NAME) {
                     return binding.path.get("identifier") as NodePath<t.Identifier>;
+                }
+            } else if (t.isImportSpecifier(binding.path.node) && (binding.path.parent as t.ImportDeclaration).source.value === PARALLEL_MODULE_NAME && binding.path.node.imported.name === "default") {
+                  return binding.path.get("local") as NodePath<t.Identifier>;
+            } else if (t.isVariableDeclarator(binding.path.node) && t.isCallExpression(binding.path.node.init) && binding.path.node.init.arguments.length > 0) {
+                // require js const parallel = require('parallel...');
+
+                const requireCall = binding.path.node.init;
+                if (t.isIdentifier(requireCall.callee) && requireCall.callee.name === "require" && t.isStringLiteral(requireCall.arguments[0]) && (requireCall.arguments[0] as t.StringLiteral).value === PARALLEL_MODULE_NAME) {
+                    return binding.path.get("id") as NodePath<t.Identifier>;
                 }
             }
         }
@@ -96,22 +108,24 @@ const StatefulVisitor: Visitor = {
 
 /**
  * Creates a new babel-plugin that extract all functors passed to parallel.* and registers them in the passed in registry
- * @param staticFunctionRegistry the registry into which the modules with the functors should be registered
+ * @param modulesUsingParallelRegistry the registry into which the modules with the functors should be registered
  * @returns the babel plugin instance
  */
-export function ParallelFunctorsExtractorVisitor (staticFunctionRegistry: ModulesUsingParallelRegistry): Visitor {
+export function ParallelFunctorsExtractorVisitor (modulesUsingParallelRegistry: ModulesUsingParallelRegistry): Visitor {
 
     return {
         Program(path: NodePath<t.Program>) {
-            const filename = path.hub.file.opts.filename;
             // Important, babel modifies the input source map when merging it with the outpout source map, but we need
             // to source map containing exactly this state!
             const map = Object.assign({}, path.hub.file.opts.inputSourceMap);
+            const filename = path.hub.file.opts.filename;
             const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, path.hub.file.code, map);
-            staticFunctionRegistry.remove(filename);
+
+            modulesUsingParallelRegistry.remove(filename);
+
             path.traverse(StatefulVisitor, moduleFunctionRegistry);
             if (!moduleFunctionRegistry.empty) {
-                staticFunctionRegistry.add(moduleFunctionRegistry);
+                modulesUsingParallelRegistry.add(moduleFunctionRegistry);
             }
         }
     };

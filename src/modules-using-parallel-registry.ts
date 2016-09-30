@@ -27,8 +27,12 @@ export class ModulesUsingParallelRegistry {
      * @returns true if the module has been removed, false if it was not registered at all
      */
     public remove(name: string): boolean {
-        ++this.version;
-        return this.modulesLookupTable.delete(name);
+        const removed = this.modulesLookupTable.delete(name);
+
+        if (removed) {
+            ++this.version;
+        }
+        return removed;
     }
 
     /**
