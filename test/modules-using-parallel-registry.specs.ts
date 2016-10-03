@@ -22,8 +22,8 @@ describe("ModulesUsingParallelRegistry", function () {
 
         it("returns an array containing the registered modules", function () {
             // arrange
-            const firstModule = new ModuleFunctionsRegistry("test.js", "const x = 10;");
-            const secondModule = new ModuleFunctionsRegistry("second.js", "require('./test.js');");
+            const firstModule = new ModuleFunctionsRegistry("test.js");
+            const secondModule = new ModuleFunctionsRegistry("second.js");
 
             registry.add(firstModule);
             registry.add(secondModule);
@@ -36,7 +36,7 @@ describe("ModulesUsingParallelRegistry", function () {
     describe("add", function () {
         it("registers the module", function () {
             // arrange
-            const module = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+            const module = new ModuleFunctionsRegistry("test.js");
 
             // act
             registry.add(module);
@@ -47,7 +47,7 @@ describe("ModulesUsingParallelRegistry", function () {
 
         it("freezes the module", function () {
             // arrange
-            const module = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+            const module = new ModuleFunctionsRegistry("test.js");
 
             // act
             registry.add(module);
@@ -58,7 +58,7 @@ describe("ModulesUsingParallelRegistry", function () {
 
         it("increases the version", function () {
             // arrange
-            const module = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+            const module = new ModuleFunctionsRegistry("test.js");
 
             // act
             registry.add(module);
@@ -74,8 +74,8 @@ describe("ModulesUsingParallelRegistry", function () {
 
         beforeEach(function () {
             // arrange
-            testModule = new ModuleFunctionsRegistry("test.js", "const x = 10;");
-            secondModule = new ModuleFunctionsRegistry("second.js", "require('./test.js');");
+            testModule = new ModuleFunctionsRegistry("test.js");
+            secondModule = new ModuleFunctionsRegistry("second.js");
 
             registry.add(testModule);
             registry.add(secondModule);
@@ -111,7 +111,7 @@ describe("ModulesUsingParallelRegistry", function () {
 
         beforeEach(function () {
             // arrange
-            testModule = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+            testModule = new ModuleFunctionsRegistry("test.js");
 
             registry.add(testModule);
         });
@@ -130,7 +130,7 @@ describe("ModulesUsingParallelRegistry", function () {
 
         beforeEach(function () {
             // arrange
-            testModule = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+            testModule = new ModuleFunctionsRegistry("test.js");
 
             registry.add(testModule);
         });

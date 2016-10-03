@@ -8,17 +8,12 @@ describe("ModuleFunctionRegistry", function () {
     let registry: ModuleFunctionsRegistry;
 
     beforeEach(function () {
-        registry = new ModuleFunctionsRegistry("test.js", "const x = 10;");
+        registry = new ModuleFunctionsRegistry("test.js");
     });
 
     it("has the module name passed in the constructor", function () {
         // assert
         expect(registry.fileName).to.equal("test.js");
-    });
-
-    it("has the code passed in the constructor", function () {
-        // assert
-        expect(registry.code).to.equal("const x = 10;");
     });
 
     it("has no source map by default", function () {
@@ -31,7 +26,7 @@ describe("ModuleFunctionRegistry", function () {
         const sourceMap = {} as any;
 
         // act
-        registry = new ModuleFunctionsRegistry("test.js", "const x = 10;", sourceMap);
+        registry = new ModuleFunctionsRegistry("test.js", sourceMap);
 
         // assert
         expect(registry.map).to.equal(sourceMap);

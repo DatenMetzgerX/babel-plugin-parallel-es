@@ -1,7 +1,5 @@
 import * as t from "babel-types";
 
-export type FunctionNode = t.FunctionExpression | t.FunctionDeclaration | t.ArrowFunctionExpression;
-
 /**
  * The registration of a single functor
  */
@@ -14,5 +12,5 @@ export interface IFunctorRegistration {
     /**
      * The node defining the functor
      */
-    readonly node: FunctionNode;
+    readonly node: t.Function;
 }
