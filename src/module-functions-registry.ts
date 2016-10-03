@@ -1,5 +1,6 @@
+import * as t from "babel-types";
 import {NodePath} from "babel-traverse";
-import {IFunctorRegistration, FunctionNode} from "./function-registration";
+import {IFunctorRegistration} from "./function-registration";
 import {RawSourceMap} from "source-map";
 
 /**
@@ -24,7 +25,7 @@ export class ModuleFunctionsRegistry {
         return this.functionsRegistry.size === 0;
     }
 
-    constructor(public fileName: string, public code: string, public map?: RawSourceMap) {
+    constructor(public fileName: string, public map?: RawSourceMap) {
     }
 
     /**
@@ -32,7 +33,7 @@ export class ModuleFunctionsRegistry {
      * @param path the path of the function
      * @returns the created registration
      */
-    public registerFunction(path: NodePath<FunctionNode>): IFunctorRegistration {
+    public registerFunction(path: NodePath<t.Function>): IFunctorRegistration {
         path.assertFunction();
 
         const key = path.getPathLocation();

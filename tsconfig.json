@@ -12,7 +12,8 @@
     "outDir": "dist",
     "target": "es5",
     "sourceMap": true,
-    "lib": ["es6"]
+    "lib": ["es6"],
+    "typeRoots": ["types", "node_modules/@types"]
   },
   "include": [
     "index.ts",
