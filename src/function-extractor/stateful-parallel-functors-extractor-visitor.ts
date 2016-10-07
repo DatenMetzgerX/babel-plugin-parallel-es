@@ -3,6 +3,7 @@ import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
 import {PARALLEL_ES_MODULE_NAME} from "../constants";
 import {warn, createFunctionId, createSerializedFunctionCall} from "../util";
+import {transpileFunctor} from "./transpile-functor";
 
 function isParallelObject(path: NodePath<any>): boolean {
     const parallel = path.getData("parallel:instance");
@@ -148,6 +149,8 @@ export const StatefulParallelFunctorsExtractorVisitor: Visitor = {
             const functor = path.get(`arguments.${method.functorIndex}`) as NodePath<t.Expression | t.SpreadElement>;
             let functorDeclaration = resolveFunction(functor, method.allowNonFunctions);
             if (functorDeclaration && functorDeclaration.isFunction()) {
+                transpileFunctor(functorDeclaration as NodePath<t.Function>, moduleFunctionRegistry);
+
                 const registration = moduleFunctionRegistry.registerFunction(functorDeclaration! as NodePath<t.Function>);
                 const functionId = createFunctionId(registration);
 

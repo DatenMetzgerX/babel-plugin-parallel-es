@@ -1,11 +1,11 @@
 import {expect} from "chai";
 import * as t from "babel-types";
-import traverse from "babel-traverse";
 import {transform, BabelFileResult} from "babel-core";
 import {ModulesUsingParallelRegistry} from "../../src/modules-using-parallel-registry";
 import {createReWriterVisitor} from "../../src/worker-rewriter/worker-rewriter-visitor";
 import {WORKER_FUNCTORS_REGISTRATION_MARKER} from "../../src/constants";
 import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {toPath} from "../test-utils";
 import {NodePath} from "babel-traverse";
 
 describe("WorkerReWriterVisitor", function () {
@@ -123,11 +123,7 @@ function after() {}`);
 
         it("passes the function expression to the register call", function () {
             // act
-            const result = visit(`
-        /* ${WORKER_FUNCTORS_REGISTRATION_MARKER} */
-        
-        function after() {}
-        `);
+            const result = visit();
 
             // assert
             const registerCall = ((result.ast as t.File).program.body[0] as t.ExpressionStatement).expression as t.CallExpression;
@@ -140,7 +136,7 @@ function after() {}`);
         let arrowExpression: t.ArrowFunctionExpression;
 
         beforeEach(function() {
-            module = new ModuleFunctionsRegistry("test'.js");
+            module = new ModuleFunctionsRegistry("test.js");
             arrowExpression = t.arrowFunctionExpression([], t.blockStatement([]));
             module.registerFunction(toPath(arrowExpression));
             registry.add(module);
@@ -148,11 +144,7 @@ function after() {}`);
 
         it("passes the function expression to the register call", function () {
             // act
-            const result = visit(`
-        /* ${WORKER_FUNCTORS_REGISTRATION_MARKER} */
-        
-        function after() {}
-        `);
+            const result = visit();
 
             // assert
             const registerCall = ((result.ast as t.File).program.body[0] as t.ExpressionStatement).expression as t.CallExpression;
@@ -160,32 +152,90 @@ function after() {}`);
         });
     });
 
-    function visit(code: string): BabelFileResult {
+    describe("Imports", function () {
+        let module: ModuleFunctionsRegistry;
+        let functor: NodePath<t.Function>;
+        let program: NodePath<t.Program>;
+
+        beforeEach(function () {
+            module = new ModuleFunctionsRegistry("test.js");
+            program = toPath(`
+                import * as _ from "lodash";
+                
+                function double(values) {
+                    return _.map(values, value => value * 2);
+                }
+            `);
+            functor = program.get("body.1") as NodePath<t.Function>;
+
+            module.imports.addNamespaceImport("lodash", "_", functor);
+            module.registerFunction(functor);
+            registry.add(module);
+        });
+
+        it("adds the imports to the returned file", function () {
+            // act
+            const result = visit();
+
+            // assert
+            const body = (result.ast as t.File).program.body;
+            expect(body[0]).to.have.property("type").that.equals("ImportDeclaration");
+            expect(body[0]).to.have.deep.property("source.value").that.equals("lodash");
+            expect(body[0]).to.have.deep.property("specifiers[0].type").that.equals("ImportNamespaceSpecifier");
+            expect(body[0]).to.have.deep.property("specifiers[0].local.name").that.equals("_2");
+        });
+
+        it("collapses equal imports and renames all references", function () {
+            // arrange
+            let program2 = toPath(`
+                import * as lodash from "lodash";
+                
+                function double(values) {
+                    return lodash.map(values, value => value * 2);
+                }
+            `);
+            let functor2 = program2.get("body.1") as NodePath<t.Function>;
+
+            let secondModule = new ModuleFunctionsRegistry("b.js");
+            secondModule.registerFunction(functor2);
+            secondModule.imports.addNamespaceImport("lodash", "lodash", functor2);
+            registry.add(secondModule);
+
+            // act
+            const result = visit();
+
+            // assert
+            const body = (result.ast as t.File).program.body;
+            const double1 = body[1];
+            const double2 = body[3];
+
+            expect(double1).to.have.property("type").that.equals("FunctionDeclaration");
+            expect(double1).to.have.deep.property("body.body[0].argument.callee.object.name").that.equals("_2");
+
+            expect(double2).to.have.property("type").that.equals("FunctionDeclaration");
+            expect(double2).to.have.deep.property("body.body[0].argument.callee.object.name").that.equals("_2");
+        });
+
+        it("renames references to the new name of the import", function () {
+            // act
+            const result = visit();
+
+            // assert
+            const body = (result.ast as t.File).program.body;
+            const testFunction = body[1];
+
+            expect(testFunction).to.have.property("type").that.equals("FunctionDeclaration");
+            expect(testFunction).to.have.deep.property("body.body[0].argument.callee.object.name").that.equals("_2");
+        });
+    });
+
+    function visit(code?: string): BabelFileResult {
+        code = code || `/* ${WORKER_FUNCTORS_REGISTRATION_MARKER} */
+        
+        function after() {}`;
+
         return transform(code, {
             plugins: [ { visitor: createReWriterVisitor(registry) }]
         });
-    }
-
-    function toPath<T extends t.Expression | t.Statement>(node: T): NodePath<T> {
-        let statement: t.Statement;
-        if (t.isStatement(node)) {
-            statement = node;
-        } else {
-            statement = t.expressionStatement(node as t.Expression);
-        }
-
-        let nodePath: NodePath<T> | undefined = undefined;
-        traverse(t.file(t.program([statement])), {
-            Program(path: NodePath<t.Program>) {
-                const statementPath = path.get("body.0");
-                if (t.isStatement(node)) {
-                    nodePath = statementPath as NodePath<T>;
-                } else {
-                    nodePath = statementPath.get("expression") as NodePath<T>;
-                }
-            }
-        });
-
-        return nodePath!;
     }
 });

@@ -2,13 +2,15 @@ import * as t from "babel-types";
 import {NodePath} from "babel-traverse";
 import {IFunctorRegistration} from "../function-registration";
 import {RawSourceMap} from "source-map";
+import {ImportsRegistry} from "./imports-registry";
 
 /**
  * Registry that stores the functions for a single module
  */
 export class ModuleFunctionsRegistry {
-    private functionsRegistry = new Map<string, IFunctorRegistration>();
+    public imports = new ImportsRegistry();
 
+    private functionsRegistry = new Map<string, IFunctorRegistration>();
     /**
      * Returns the functors passed to parallel
      * @returns the functors
