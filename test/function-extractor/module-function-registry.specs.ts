@@ -1,6 +1,6 @@
 import {expect} from "chai";
 import * as t from "babel-types";
-import {ModuleFunctionsRegistry} from "../src/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
 import traverse, {NodePath} from "babel-traverse";
 
 describe("ModuleFunctionRegistry", function () {

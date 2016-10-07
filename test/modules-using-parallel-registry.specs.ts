@@ -1,6 +1,6 @@
 import {expect} from "chai";
 import {ModulesUsingParallelRegistry} from "../src/modules-using-parallel-registry";
-import {ModuleFunctionsRegistry} from "../src/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../src/function-extractor/module-functions-registry";
 
 describe("ModulesUsingParallelRegistry", function () {
     let registry: ModulesUsingParallelRegistry;

@@ -1,23 +1,7 @@
+import WorkerReWriterPlugin from "./src/worker-rewriter/worker-rewriter-plugin";
+import FunctionExtractorPlugin from "./src/function-extractor/function-extractor-plugin";
 import {ModulesUsingParallelRegistry} from "./src/modules-using-parallel-registry";
-import {BabylonOptions} from "babylon";
-import {ParallelFunctorsExtractorVisitor} from "./src/parallel-functors-extractor-visitor";
-import {Visitor} from "babel-traverse";
-import {TransformOptions} from "babel-core";
 
-export const registry = new ModulesUsingParallelRegistry();
+export default FunctionExtractorPlugin;
 
-export interface IBabelPlugin {
-    visitor: Visitor;
-    manipulateOptions(options: TransformOptions, parserOptions: BabylonOptions, file: any): void;
-}
-
-export default function (): IBabelPlugin {
-    return {
-        manipulateOptions(options: TransformOptions, parserOptions: BabylonOptions): void {
-            // workaround for https://github.com/babel/babel/pull/4570#issuecomment-249586438
-            parserOptions.sourceFilename = options.filename;
-        },
-
-        visitor: ParallelFunctorsExtractorVisitor(registry)
-    };
-};
+export { WorkerReWriterPlugin, ModulesUsingParallelRegistry };

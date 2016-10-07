@@ -1,4 +1,4 @@
-import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {ModuleFunctionsRegistry} from "./function-extractor/module-functions-registry";
 
 /**
  * Registry that stores all modules that pass a functor to {@code parallel.*}.
@@ -63,3 +63,5 @@ export class ModulesUsingParallelRegistry {
         return this.modulesLookupTable.get(name);
     }
 }
+
+export const SHARED_MODULES_USING_PARALLEL_REGISTRY = new ModulesUsingParallelRegistry();
