@@ -4,6 +4,7 @@ import {createFunctionId} from "../util";
 import {ModulesUsingParallelRegistry} from "../modules-using-parallel-registry";
 import {IFunctorRegistration} from "../function-registration";
 import {WORKER_FUNCTORS_REGISTRATION_MARKER} from "../constants";
+import {ModuleFunctionsRegistry} from "../function-extractor/module-functions-registry";
 
 /**
  * Removes the worker slave marker from a leading or trailing comment
@@ -30,7 +31,22 @@ function removeAfterWorkerSlaveMarker(path: NodePath<t.Node>): boolean {
     return removeFrom("leadingComments");
 }
 
-function registerStaticFunction(insertionPoint: NodePath<t.Statement>, definition: IFunctorRegistration) {
+function addImports(module: ModuleFunctionsRegistry, path: NodePath<t.Node>) {
+    const imports = module.imports.getImports();
+
+    for (const referencedModule of Object.keys(imports)) {
+        const moduleImports = imports[referencedModule];
+        for (const imported of moduleImports) {
+            const id = path.hub.file.addImport(referencedModule, imported.imported);
+
+            for (const reference of imported.references) {
+                reference.scope.rename(imported.local, id.name);
+            }
+        }
+    }
+}
+
+function registerStaticFunction(insertionPoint: NodePath<t.Statement>, definition: IFunctorRegistration, module: ModuleFunctionsRegistry) {
     const id = createFunctionId(definition);
 
     let functionDefinition = definition.node as t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression;
@@ -58,8 +74,9 @@ export function createReWriterVisitor(registry: ModulesUsingParallelRegistry): V
 
             for (const module of registry.modules) {
                 for (const definition of module.functions) {
-                    registerStaticFunction(path, definition);
+                    registerStaticFunction(path, definition, module);
                 }
+                addImports(module, path);
             }
         }
     };

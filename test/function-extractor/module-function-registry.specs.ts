@@ -1,7 +1,7 @@
 import {expect} from "chai";
 import * as t from "babel-types";
 import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
-import traverse, {NodePath} from "babel-traverse";
+import {toPath} from "../test-utils";
 
 describe("ModuleFunctionRegistry", function () {
 
@@ -145,15 +145,4 @@ describe("ModuleFunctionRegistry", function () {
             expect(registry.empty).to.be.false;
         });
     });
-
-    function toPath<T extends t.Statement>(node: T): NodePath<T> {
-        let result: NodePath<T> | undefined = undefined;
-        traverse(t.file(t.program([node])), {
-            Statement(path: NodePath<t.Statement>) {
-                result = path as NodePath<T>;
-                path.skip();
-            }
-        });
-        return result!;
-    }
 });
