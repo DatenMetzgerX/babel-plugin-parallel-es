@@ -54,6 +54,7 @@
   },
   "scripts": {
     "build": "tslint index.ts './src/**/*.ts' './test/**/*.ts' && tsc",
+    "prepublish": "npm run-script build",
     "start": "tsc --watch",
     "test": "nyc mocha --inline-diffs './test/**/*.specs.ts'",
     "test:watch": "mocha --compilers ts:ts-node/register -w --inline-diffs './test/**/*.specs.ts' -w",
