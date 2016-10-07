@@ -1,15 +1,16 @@
 import {expect} from "chai";
 import * as sinon from "sinon";
 import {transform} from "babel-core";
-import {ParallelFunctorsExtractorVisitor} from "../src/parallel-functors-extractor-visitor";
-import {ModulesUsingParallelRegistry} from "../src/modules-using-parallel-registry";
-import {PARALLEL_ES_MODULE_NAME} from "../src/constants";
+import {ParallelFunctorsExtractorVisitor} from "../../src/function-extractor/parallel-functors-extractor-visitor";
+import {ModulesUsingParallelRegistry} from "../../src/modules-using-parallel-registry";
+import {PARALLEL_ES_MODULE_NAME} from "../../src/constants";
+import {RawSourceMap} from "source-map";
+import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
 
 describe("ParallelFunctorsExtractorVisitor", function () {
     let registry: ModulesUsingParallelRegistry;
     let addModuleSpy: sinon.SinonSpy;
     let removeModuleSpy: sinon.SinonSpy;
-    let sourceMap = { mappings: "", sources: [], sourcesContent: [], version: 3 };
 
     beforeEach(function () {
         registry = new ModulesUsingParallelRegistry();
@@ -129,24 +130,58 @@ describe("ParallelFunctorsExtractorVisitor", function () {
 
             expect(removeModuleSpy).to.have.been.calledWithMatch("test.js");
         });
+    });
 
-        it("sets a copy of the module source map in the module", function () {
+    describe("SourceMaps", function () {
+        it("uses a copy of the input source map in the module", function () {
+            // arrange
+            let sourceMap = { mappings: "", names: [], sources: [], sourcesContent: [], version: "3" };
+
+            // act
             visit(`
-            import parallel from "${PARALLEL_ES_MODULE_NAME}";
-            parallel.from([1, 2, 3]).map(value => value * 2);
-            `);
+                import parallel from "${PARALLEL_ES_MODULE_NAME}";
+                parallel.from([1, 2, 3]).map(value => value * 2);
+            `, sourceMap);
 
+            // assert
             expect(addModuleSpy).to.have.been.called;
             const addedModule = addModuleSpy.firstCall.args[0];
             expect(addedModule).to.have.property("fileName", "test.js");
             expect(addedModule).to.have.property("map").not.equal(sourceMap);
         });
+
+        it("creates a source map if input source map is not set", function () {
+            // arrange
+            const source = `
+            import parallel from "${PARALLEL_ES_MODULE_NAME}";
+            parallel.from([1, 2, 3]).map(value => value * 2);
+            `;
+
+            // act
+            visit(source);
+
+            // assert
+            const addedModule = addModuleSpy.firstCall.args[0] as ModuleFunctionsRegistry;
+            expect(addedModule.map).to.eql({
+                file: "test.js",
+                mappings: "",
+                names: [],
+                sourceRoot: undefined,
+                sources: [
+                    "test.js"
+                ],
+                sourcesContent: [
+                    source
+                ],
+                version: "3"
+            });
+        });
     });
 
-    function visit(code: string) {
+    function visit(code: string, inputSourceMap?: RawSourceMap) {
         return transform(code, {
             filename: "test.js",
-            inputSourceMap: sourceMap,
+            inputSourceMap,
             plugins: [ { visitor: ParallelFunctorsExtractorVisitor(registry) } ]
         });
     }

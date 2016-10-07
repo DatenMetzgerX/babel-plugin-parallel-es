@@ -1,9 +1,8 @@
 import * as t from "babel-types";
 import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
-import {PARALLEL_ES_MODULE_NAME} from "./constants";
-import {warn} from "./util";
-import {IFunctorRegistration} from "./function-registration";
+import {PARALLEL_ES_MODULE_NAME} from "../constants";
+import {warn, createFunctionId, createSerializedFunctionCall} from "../util";
 
 function isParallelObject(path: NodePath<any>): boolean {
     const parallel = path.getData("parallel:instance");
@@ -95,21 +94,6 @@ const METHODS: { [name: string]: { functorIndex: number, allowNonFunctions?: boo
     schedule: { allowNonFunctions: true, functionCall: true, functorIndex: 0},
     times: { allowNonFunctions: true, functorIndex: 1 }
 };
-
-function createFunctionId(registration: IFunctorRegistration) {
-    return t.objectExpression([
-        t.objectProperty(t.identifier("identifier"), t.stringLiteral(registration.identifier)),
-        t.objectProperty(t.identifier("_______isFunctionId"), t.booleanLiteral(true))
-    ]);
-}
-
-function createSerializedFunctionCall(functionId: t.ObjectExpression, parameters: Array<t.Expression | t.SpreadElement>) {
-    return t.objectExpression([
-        t.objectProperty(t.identifier("functionId"), functionId),
-        t.objectProperty(t.identifier("parameters"), t.arrayExpression(parameters)),
-        t.objectProperty(t.identifier("______serializedFunctionCall"), t.booleanLiteral(true))
-    ]);
-}
 
 export const StatefulParallelFunctorsExtractorVisitor: Visitor = {
     /**

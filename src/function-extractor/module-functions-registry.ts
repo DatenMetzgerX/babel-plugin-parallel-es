@@ -1,6 +1,6 @@
 import * as t from "babel-types";
 import {NodePath} from "babel-traverse";
-import {IFunctorRegistration} from "./function-registration";
+import {IFunctorRegistration} from "../function-registration";
 import {RawSourceMap} from "source-map";
 
 /**
