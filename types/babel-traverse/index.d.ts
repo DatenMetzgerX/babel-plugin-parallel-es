@@ -11,5 +11,10 @@ declare module "babel-traverse" {
          * Fix for https://github.com/DefinitelyTyped/DefinitelyTyped/pull/11654
          */
         buildCodeFrameError<TError extends Error>(msg: string, Error?: new (msg: string) => TError): TError;
+
+        /**
+         * converts the arrow function to a shadowed function expression
+         */
+        arrowFunctionToShadowed(): void;
     }
 }

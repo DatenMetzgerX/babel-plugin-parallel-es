@@ -288,8 +288,9 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
                 parallel.from([1, 2, 3]).reduce(0, (memo, value) => memo + value);
                 `);
 
-                const accumulator = program.get("body.1.expression.arguments.2");
-                expect(accumulator.isArrowFunctionExpression()).to.be.true;
+                const args = (program.get("body.1.expression.arguments") as any) as NodePath<t.Node>[];
+                expect(args).to.have.length(3);
+                expect(args[2].isArrowFunctionExpression()).to.be.true;
             });
 
             it("does not add the combiner if reduce is called with three arguments", function () {
