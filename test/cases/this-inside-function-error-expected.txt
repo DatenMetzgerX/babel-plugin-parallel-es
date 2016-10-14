@@ -1,0 +1,7 @@
+SyntaxError: this-inside-function-error-case.js: This cannot be accessed inside of a function passed to a parallel method, this is always undefined.
+  2 | 
+  3 | parallel.from([1, 2, 3]).map(function (value) {
+> 4 |     this.count = this.count || 0;
+    |     ^
+  5 |     return this.count++ * value;
+  6 | });

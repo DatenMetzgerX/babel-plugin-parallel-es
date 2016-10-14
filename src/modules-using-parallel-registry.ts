@@ -62,6 +62,11 @@ export class ModulesUsingParallelRegistry {
     public get(name: string): ModuleFunctionsRegistry | undefined {
         return this.modulesLookupTable.get(name);
     }
+
+    public reset(): void {
+        this.modulesLookupTable.clear();
+        this.version = 0;
+    }
 }
 
 export const SHARED_MODULES_USING_PARALLEL_REGISTRY = new ModulesUsingParallelRegistry();

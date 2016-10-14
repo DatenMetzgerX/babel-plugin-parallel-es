@@ -3,7 +3,8 @@ import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
 import {PARALLEL_ES_MODULE_NAME} from "../constants";
 import {warn, createFunctionId, createSerializedFunctionCall} from "../util";
-import {transpileFunctor} from "./transpile-functor";
+import {transpileParallelChainCall} from "./transpile-parallel-chain-call";
+import {ParallelMethod, isParallelFunctionCall, isParallelFunctor, PARALLEL_METHODS} from "./parallel-methods";
 
 function isParallelObject(path: NodePath<any>): boolean {
     const parallel = path.getData("parallel:instance");
@@ -54,6 +55,22 @@ function hasProperty(object: NodePath<t.ObjectExpression>, propertyName: string)
     return false;
 }
 
+function getParallelMethod(path: NodePath<t.CallExpression>) {
+    if (!t.isMemberExpression(path.node.callee)) {
+        return undefined;
+    }
+
+    const methodName = getParallelMethodName(path.get("callee") as NodePath<t.MemberExpression>);
+
+    if (!methodName || !PARALLEL_METHODS.hasOwnProperty(methodName)) {
+        return undefined;
+    }
+
+    path.debug(() => `Found invocation of parallel method ${methodName}`);
+
+    return PARALLEL_METHODS[methodName];
+}
+
 /**
  * Resolves the function declaration referenced by the given path. If the path itself is a function expression, declaration or
  * arrow function expression, then the path itself is returned. If the path is an identifier, then it is tried to resolve the binding.
@@ -64,7 +81,7 @@ function hasProperty(object: NodePath<t.ObjectExpression>, propertyName: string)
  * @throws if the path is neither a serialized function id, reference nor function and {@code allowNonFunctions} is not true
  */
 function resolveFunction(functionPath: NodePath<t.Node>, allowNonFunctions: boolean = false): NodePath<t.Node> | undefined {
-    const resolved = functionPath.resolve(false);
+    const resolved = functionPath.resolve(true);
 
     if (t.isFunction(resolved.node)) {
         return resolved as NodePath<t.Function>;
@@ -80,6 +97,11 @@ function resolveFunction(functionPath: NodePath<t.Node>, allowNonFunctions: bool
         return undefined;
     }
 
+    if (t.isMemberExpression(resolved.node)) {
+        warn(functionPath, `Member expressions are not fully supported by the code rewriter. The given member could not be resolved and therefore the function cannot be statically rewritten.`);
+        return undefined;
+    }
+
     if (!allowNonFunctions) {
         throw functionPath.buildCodeFrameError("The node passed as functor is neither a serialized function nor a reference to a function. Invalid use of the api.");
     }
@@ -87,14 +109,32 @@ function resolveFunction(functionPath: NodePath<t.Node>, allowNonFunctions: bool
     return undefined;
 }
 
-const METHODS: { [name: string]: { functorIndex: number, allowNonFunctions?: boolean, functionCall?: boolean }} = {
-    filter: { functorIndex: 0 },
-    inEnvironment: { allowNonFunctions: true, functionCall: true, functorIndex: 0 },
-    map: { functorIndex: 0 },
-    reduce: { functorIndex: 1 },
-    schedule: { allowNonFunctions: true, functionCall: true, functorIndex: 0},
-    times: { allowNonFunctions: true, functorIndex: 1 }
-};
+function extractFunctor(call: NodePath<t.CallExpression>, method: ParallelMethod, moduleFunctionRegistry: ModuleFunctionsRegistry) {
+    const functor = call.get(`arguments.${method.functorArgumentIndex}`) as NodePath<t.Expression | t.SpreadElement>;
+    const functorDeclaration = resolveFunction(functor, method.allowNonFunctions);
+    if (!functorDeclaration || !functorDeclaration.isFunction()) {
+        return;
+    }
+
+    const parallelChainCall = { callExpression: call, functor: functorDeclaration as NodePath<t.Function>, method };
+    transpileParallelChainCall(parallelChainCall, moduleFunctionRegistry);
+
+    const registration = moduleFunctionRegistry.registerFunction(functorDeclaration! as NodePath<t.Function>);
+    const functionId = createFunctionId(registration);
+
+    if (isParallelFunctionCall(method)) {
+        const parameters = ((call.get("arguments") as any) as NodePath<t.Expression | t.SpreadElement>[]).slice(method.functorArgumentIndex + 1);
+        const functionCall = createSerializedFunctionCall(functionId, parameters.map(parameter => parameter.node));
+        parameters.forEach(parameter => parameter.remove());
+        functor.replaceWith(functionCall);
+    } else {
+        if (method === PARALLEL_METHODS["reduce"] && call.node.arguments.length < 3) {
+            call.node.arguments.push(functor.node);
+        }
+
+        functor.replaceWith(functionId);
+    }
+}
 
 export const StatefulParallelFunctorsExtractorVisitor: Visitor = {
     /**
@@ -132,41 +172,10 @@ export const StatefulParallelFunctorsExtractorVisitor: Visitor = {
     },
 
     CallExpression(path: NodePath<t.CallExpression>, moduleFunctionRegistry: ModuleFunctionsRegistry) {
-        if (!t.isMemberExpression(path.node.callee)) {
-            return;
-        }
+        const method = getParallelMethod(path);
 
-        const methodName = getParallelMethodName(path.get("callee") as NodePath<t.MemberExpression>);
-
-        if (!methodName || !METHODS.hasOwnProperty(methodName)) {
-            return;
-        }
-
-        path.debug(() => `Found invocation of parallel method ${methodName}`);
-
-        const method = METHODS[methodName];
-        if (path.node.arguments.length > method.functorIndex) {
-            const functor = path.get(`arguments.${method.functorIndex}`) as NodePath<t.Expression | t.SpreadElement>;
-            let functorDeclaration = resolveFunction(functor, method.allowNonFunctions);
-            if (functorDeclaration && functorDeclaration.isFunction()) {
-                transpileFunctor(functorDeclaration as NodePath<t.Function>, moduleFunctionRegistry);
-
-                const registration = moduleFunctionRegistry.registerFunction(functorDeclaration! as NodePath<t.Function>);
-                const functionId = createFunctionId(registration);
-
-                if (method.functionCall) {
-                    const parameters = ((path.get("arguments") as any) as NodePath<t.Expression | t.SpreadElement>[]).slice(method.functorIndex + 1);
-                    const functionCall = createSerializedFunctionCall(functionId, parameters.map(parameter => parameter.node));
-                    parameters.forEach(parameter => parameter.remove());
-                    functor.replaceWith(functionCall);
-                } else {
-                    if (methodName === "reduce" && path.node.arguments.length < 3) {
-                        path.node.arguments.push(functor.node);
-                    }
-
-                    functor.replaceWith(functionId);
-                }
-            }
+        if (method && (isParallelFunctor(method) || isParallelFunctionCall(method)) && path.node.arguments.length > method.functorArgumentIndex) {
+            extractFunctor(path, method, moduleFunctionRegistry);
         }
     }
 };

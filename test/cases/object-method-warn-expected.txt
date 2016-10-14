@@ -1,0 +1,5 @@
+[BABEL] object-method-warn-case.js: Member expressions are not fully supported by the code rewriter. The given member could not be resolved and therefore the function cannot be statically rewritten.
+   9 | };
+  10 | 
+> 11 | parallel.from([1, 2, 3]).map(transformer.mapper);
+     |                             ^
