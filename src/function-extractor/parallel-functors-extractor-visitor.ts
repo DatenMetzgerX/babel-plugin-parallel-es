@@ -4,6 +4,7 @@ import {ModuleFunctionsRegistry} from "./module-functions-registry";
 import {ModulesUsingParallelRegistry} from "../modules-using-parallel-registry";
 import {StatefulParallelFunctorsExtractorVisitor} from "./stateful-parallel-functors-extractor-visitor";
 import {RawSourceMap} from "source-map";
+import {TransformOptions} from "babel-core";
 
 function getSourceMap(path: NodePath<t.Program>): RawSourceMap {
     let inputSourceMap = path.hub.file.opts.inputSourceMap as RawSourceMap;
@@ -36,8 +37,9 @@ export function ParallelFunctorsExtractorVisitor (modulesUsingParallelRegistry: 
 
     return {
         Program(path: NodePath<t.Program>) {
-            const filename = path.hub.file.opts.filename;
-            const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, getSourceMap(path));
+            const options = path.hub.file.opts as TransformOptions;
+            const filename = options.filename!;
+            const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, path.scope, getSourceMap(path));
 
             modulesUsingParallelRegistry.remove(filename);
 

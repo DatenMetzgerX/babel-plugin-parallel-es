@@ -3,7 +3,7 @@ import {NodePath, Visitor} from "babel-traverse";
 import {ModuleFunctionsRegistry} from "./module-functions-registry";
 import {PARALLEL_ES_MODULE_NAME} from "../constants";
 import {warn, createFunctionId, createSerializedFunctionCall} from "../util";
-import {transpileParallelChainCall} from "./transpile-parallel-chain-call";
+import {transpileParallelFunctor} from "./transpile-parallel-functor";
 import {ParallelMethod, isParallelFunctionCall, isParallelFunctor, PARALLEL_METHODS} from "./parallel-methods";
 
 function isParallelObject(path: NodePath<any>): boolean {
@@ -71,6 +71,43 @@ function getParallelMethod(path: NodePath<t.CallExpression>) {
     return PARALLEL_METHODS[methodName];
 }
 
+function createEnvironmentExtractor(variableNames: string[], functor: NodePath<t.Function>) {
+    const properties: t.ObjectProperty[] = [];
+
+    for (const variableName of variableNames) {
+        properties.push(t.objectProperty(t.identifier(variableName), t.identifier(variableName)));
+    }
+
+    const identifier = functor.scope.generateUidIdentifier("environmentExtractor");
+    const environment = t.functionDeclaration(identifier, [], t.blockStatement([
+        t.returnStatement(t.objectExpression(properties))
+    ]));
+
+    functor.getStatementParent().insertBefore(environment);
+
+    return identifier;
+}
+
+function addInEnvironmentCall(call: NodePath<t.CallExpression>, environmentProvider: t.Identifier) {
+    const oldCallee = call.node.callee as t.MemberExpression;
+    const inEnvironment = t.memberExpression(oldCallee.object, t.identifier("inEnvironment"));
+    const createEnvironmentCall = t.callExpression(environmentProvider, []);
+
+    call.get("callee").replaceWith(t.memberExpression(t.callExpression(inEnvironment, [createEnvironmentCall]), oldCallee.property));
+}
+
+function rewriteParallelCall(call: NodePath<t.CallExpression>, method: ParallelMethod, moduleFunctionRegistry: ModuleFunctionsRegistry, functor: NodePath<t.Function>): t.FunctionDeclaration {
+    const result = transpileParallelFunctor(functor as NodePath<t.Function>, moduleFunctionRegistry, isParallelFunctor(method));
+
+    if ((result.environmentName && result.environmentVariables.length > 0)) {
+
+        const environmentProvider = createEnvironmentExtractor(result.environmentVariables, functor as NodePath<t.Function>);
+        addInEnvironmentCall(call, environmentProvider);
+    }
+
+    return result.transpiledFunctor;
+}
+
 /**
  * Resolves the function declaration referenced by the given path. If the path itself is a function expression, declaration or
  * arrow function expression, then the path itself is returned. If the path is an identifier, then it is tried to resolve the binding.
@@ -110,29 +147,27 @@ function resolveFunction(functionPath: NodePath<t.Node>, allowNonFunctions: bool
 }
 
 function extractFunctor(call: NodePath<t.CallExpression>, method: ParallelMethod, moduleFunctionRegistry: ModuleFunctionsRegistry) {
-    const functor = call.get(`arguments.${method.functorArgumentIndex}`) as NodePath<t.Expression | t.SpreadElement>;
-    const functorDeclaration = resolveFunction(functor, method.allowNonFunctions);
-    if (!functorDeclaration || !functorDeclaration.isFunction()) {
+    const functorArgument = call.get(`arguments.${method.functorArgumentIndex}`) as NodePath<t.Expression | t.SpreadElement>;
+    const functor = resolveFunction(functorArgument, method.allowNonFunctions);
+    if (!functor || !functor.isFunction()) {
         return;
     }
 
-    const parallelChainCall = { callExpression: call, functor: functorDeclaration as NodePath<t.Function>, method };
-    transpileParallelChainCall(parallelChainCall, moduleFunctionRegistry);
-
-    const registration = moduleFunctionRegistry.registerFunction(functorDeclaration! as NodePath<t.Function>);
-    const functionId = createFunctionId(registration);
+    const transpiledFunctor = rewriteParallelCall(call, method, moduleFunctionRegistry, functor as NodePath<t.Function>);
+    const functorIdentifier = moduleFunctionRegistry.registerEntryFunction(transpiledFunctor);
+    const functionId = createFunctionId(functorIdentifier.functionId);
 
     if (isParallelFunctionCall(method)) {
         const parameters = ((call.get("arguments") as any) as NodePath<t.Expression | t.SpreadElement>[]).slice(method.functorArgumentIndex + 1);
         const functionCall = createSerializedFunctionCall(functionId, parameters.map(parameter => parameter.node));
         parameters.forEach(parameter => parameter.remove());
-        functor.replaceWith(functionCall);
+        functorArgument.replaceWith(functionCall);
     } else {
         if (method === PARALLEL_METHODS["reduce"] && call.node.arguments.length < 3) {
-            call.node.arguments.push(functor.node);
+            call.node.arguments.push(functorArgument.node);
         }
 
-        functor.replaceWith(functionId);
+        functorArgument.replaceWith(functionId);
     }
 }
 

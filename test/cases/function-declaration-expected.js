@@ -6,7 +6,7 @@ function mapper(value) {
 
 export function transformData(data) {
     return parallel.from(data).map({
-        identifier: "static-function-declaration-case.js#program.body[1]",
+        identifier: "static:function-declaration-case.js/mapper",
         _______isFunctionId: true
     });
 }

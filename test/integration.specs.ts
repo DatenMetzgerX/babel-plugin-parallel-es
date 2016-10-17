@@ -80,7 +80,11 @@ describe("IntegrationTests", function () {
                 } else {
                     expect(consoleWarn).not.to.have.been.called;
                     expect(result.code).to.equal(expected);
-                    expect(workerResult.code).to.include(expectedWorker!, "Worker Code did not match\n" + workerResult.code);
+
+                    const workerExpectations = expectedWorker!.split("/* SPLIT ASSERTION */");
+                    for (const workerExpectation of workerExpectations) {
+                        expect(workerResult.code).to.include(workerExpectation!.trim(), `Worker Code \n${workerResult.code}\n did not include ${workerExpectation}`);
+                    }
                 }
 
             } catch (error) {

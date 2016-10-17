@@ -16,5 +16,7 @@ declare module "babel-traverse" {
          * converts the arrow function to a shadowed function expression
          */
         arrowFunctionToShadowed(): void;
+
+        setup(parentPath: NodePath<t.Node>, container: Object | Object[], listKey: string, key: string): void;
     }
 }

@@ -2,9 +2,10 @@ import {use as chaiUse, expect} from "chai";
 import * as sinon from "sinon";
 import * as sinonChai from "sinon-chai";
 
-import {transform} from "babel-core";
+import {parse} from "babylon";
+import {transformFromAst} from "babel-core";
 import * as t from "babel-types";
-import {NodePath} from "babel-traverse";
+import {NodePath, Scope} from "babel-traverse";
 import * as util from "../../src/util";
 import {PARALLEL_ES_MODULE_NAME} from "../../src/constants";
 import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
@@ -14,88 +15,96 @@ chaiUse(sinonChai);
 describe("StatefulParallelFunctorsExtractorVisitor", function () {
     let moduleFunctionRegistry: ModuleFunctionsRegistry;
     let registerFunctionSpy: sinon.SinonStub;
+    let registerEntryFunctionSpy: sinon.SinonStub;
+    let scope: Scope;
+    let hasBindingStub: Sinon.SinonStub;
     let warnSpy: sinon.SinonSpy;
 
     beforeEach(function () {
-        moduleFunctionRegistry = new ModuleFunctionsRegistry("test.js");
+        hasBindingStub = sinon.stub();
+        scope = { hasBinding: hasBindingStub} as any;
+        moduleFunctionRegistry = new ModuleFunctionsRegistry("test.js", scope);
         registerFunctionSpy = sinon.stub(moduleFunctionRegistry, "registerFunction");
-        registerFunctionSpy.returns({
-            identifier: "static-id",
+        registerEntryFunctionSpy = sinon.stub(moduleFunctionRegistry, "registerEntryFunction");
+        registerEntryFunctionSpy.returns({
+            functionId: "static-id",
             node: undefined
         });
         warnSpy = sinon.spy(util, "warn");
     });
 
     afterEach(function () {
-         registerFunctionSpy.restore();
-         warnSpy.restore();
+        hasBindingStub.reset();
+        registerFunctionSpy.restore();
+        registerEntryFunctionSpy.restore();
+        warnSpy.restore();
     });
 
     describe("Imports", function () {
         describe("Default Import", function () {
             it("sets 'parallel:instance' to true for the bindings path of the default import parallel", function () {
-                const program = visit(`import parallel from "${PARALLEL_ES_MODULE_NAME}";`);
+                const {transpiled} = visit(`import parallel from "${PARALLEL_ES_MODULE_NAME}";`);
 
-                const binding = program.scope.getBinding("parallel");
+                const binding = transpiled.scope.getBinding("parallel");
                 expect(binding.path.getData("parallel:instance")).to.be.true;
             });
 
             it("sets 'parallel:instance' of the default parallel import path to true even if not named parallel", function () {
-                const program = visit(`import par from "${PARALLEL_ES_MODULE_NAME}";`);
+                const {transpiled} = visit(`import par from "${PARALLEL_ES_MODULE_NAME}";`);
 
-                const parallel = program.scope.getBinding("par");
+                const parallel = transpiled.scope.getBinding("par");
                 expect(parallel.path.getData("parallel:instance")).to.be.true;
             });
 
             it("does not set 'parallel:instance' to true for a default import of another moduel", function () {
-                const program = visit(`import parallel from "other";`);
+                const {transpiled} = visit(`import parallel from "other";`);
 
-                expect(program.scope.getBinding("parallel").path.getData("parallel:instance")).to.be.undefined;
+                expect(transpiled.scope.getBinding("parallel").path.getData("parallel:instance")).to.be.undefined;
             });
         });
 
         describe("Named Default Import", function () {
             it("sets 'parallel:instance' to true for the path of the binding for a named default import", function () {
-                const program = visit(`import {default as par} from "${PARALLEL_ES_MODULE_NAME}";`);
+                const {transpiled} = visit(`import {default as par} from "${PARALLEL_ES_MODULE_NAME}";`);
 
-                const parallelBinding = program.scope.getBinding("par");
+                const parallelBinding = transpiled.scope.getBinding("par");
                 expect(parallelBinding.path.getData("parallel:instance")).to.be.true;
             });
 
             it("doe snot set 'parallel:instance' to true if it is another named import", function () {
-                const program = visit(`import {IParallel} from "${PARALLEL_ES_MODULE_NAME}";`);
+                const {transpiled} = visit(`import {IParallel} from "${PARALLEL_ES_MODULE_NAME}";`);
 
-                const binding = program.scope.getBinding("IParallel");
+                const binding = transpiled.scope.getBinding("IParallel");
                 expect(binding.path.getData("parallel:instance")).to.be.undefined;
             });
 
             it("does not set the identifier if another module is imported", function () {
-                const program = visit(`import {default as test} from "other";`);
+                const {transpiled} = visit(`import {default as test} from "other";`);
 
-                const binding = program.scope.getBinding("test");
+                const binding = transpiled.scope.getBinding("test");
                 expect(binding.path.getData("parallel:instance")).to.be.undefined;
             });
         });
 
         describe("CommonJS", function () {
             it("sets 'parallel:instance' to true for the binding of a variable bound to require('parallel-es')", function () {
-                const program = visit(`const parallel = require("${PARALLEL_ES_MODULE_NAME}");`);
+                const {transpiled} = visit(`const parallel = require("${PARALLEL_ES_MODULE_NAME}");`);
 
-                const binding = program.scope.getBinding("parallel");
+                const binding = transpiled.scope.getBinding("parallel");
                 expect(binding.path.getData("parallel:instance")).to.be.true;
             });
 
             it("does not set 'parallel.instance' another module is required", function () {
-                const program = visit(`const parallel = require("par");`);
+                const {transpiled} = visit(`const parallel = require("par");`);
 
-                const binding = program.scope.getBinding("parallel");
+                const binding = transpiled.scope.getBinding("parallel");
                 expect(binding.path.getData("parallel:instance")).to.be.undefined;
             });
 
             it("does not set 'paralle.instance' if it is a constant variable", function () {
-                const program = visit(`const parallel = true;`);
+                const {transpiled} = visit(`const parallel = true;`);
 
-                const binding = program.scope.getBinding("parallel");
+                const binding = transpiled.scope.getBinding("parallel");
                 expect(binding.path.getData("parallel:instance")).to.be.undefined;
             });
         });
@@ -104,27 +113,23 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
     describe("Method Registration", function () {
         describe("map", function () {
             it("registers the mapper", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.from([1, 2, 3]).map(value => value * 2);
+                function mapper (value) { return value * 2; }
+                parallel.from([1, 2, 3]).map(mapper);
                 `);
 
-                const mapper = program.get("body.1.expression.arguments.0");
-                expect(registerFunctionSpy).to.have.been.calledWith(mapper);
+                const mapper = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWithMatch(mapper);
             });
 
             it("replaces the mapper arrow expression with the function id", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+                const { transpiled } = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 parallel.from([1, 2, 3]).map(value => value * 2);
                 `);
 
-                const mapper = program.get("body.1.expression.arguments.0");
+                const mapper = transpiled.get("body.1.expression.arguments.0");
                 expect(mapper.isObjectExpression()).to.be.true;
 
                 const functionId = mapper.node as t.ObjectExpression;
@@ -136,17 +141,12 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
             });
 
             it("replaces the mapper function expression with the function id", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 parallel.from([1, 2, 3]).map(function (value) { return value * 2; });
                 `);
 
-                const mapper = program.get("body.1.expression.arguments.0");
+                const mapper = transpiled.get("body.1.expression.arguments.0");
                 expect(mapper.isObjectExpression()).to.be.true;
 
                 const functionId = mapper.node as t.ObjectExpression;
@@ -158,21 +158,16 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
             });
 
             it("replaces the function reference with the function id", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 function duplicate(value) {
                     return value + value;
                 }
-                
+
                 parallel.from([1, 2, 3]).map(duplicate);
                 `);
 
-                const mapper = program.get("body.2.expression.arguments.0");
+                const mapper = transpiled.get("body.2.expression.arguments.0");
                 expect(mapper.isObjectExpression()).to.be.true;
 
                 const functionId = mapper.node as t.ObjectExpression;
@@ -183,59 +178,68 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
                 expect(functionId.properties).to.have.deep.property("[1].value.value", true);
             });
 
-            it("registers the function referenced by the identifier", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+            it("transforms the function expression to a function declaration", function () {
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                const duplicate = value => value + value;
-                
-                parallel.from([1, 2, 3]).map(duplicate);
-                `);
 
-                const mapper = program.get("body.1.declarations.0.init");
-                expect(registerFunctionSpy).to.have.been.calledWith(mapper);
+                parallel.from([1, 2, 3]).map(function mapper (value) { return value + value; });`);
+
+                const mapper = original.program.body[1].expression.arguments[0] as t.FunctionExpression;
+                expect(registerEntryFunctionSpy).to.have.been.calledWithMatch({
+                    async: false,
+                    body: mapper.body,
+                    generator: false,
+                    id: t.identifier("mapper"),
+                    params: mapper.params,
+                    type: "FunctionDeclaration"
+                });
+            });
+
+            it("transforms the arrow function expression to a function declaration", function () {
+                const {original} = visit(`
+                import parallel from "${PARALLEL_ES_MODULE_NAME}";
+
+                parallel.from([1, 2, 3]).map(value => value + value);`);
+
+                const mapper = original.program.body[1].expression.arguments[0] as t.ArrowFunctionExpression;
+                expect(registerEntryFunctionSpy).to.have.been.calledWithMatch({
+                    async: false,
+                    body: sinon.match.defined,
+                    generator: false,
+                    id: t.identifier("_anonymous"),
+                    params: mapper.params,
+                    type: "FunctionDeclaration"
+                });
+
+                expect(registerEntryFunctionSpy.args[0][0]).to.have.property("body").that.is.not.undefined;
             });
 
             it("supports aliasing", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                const duplicate = value => value + value;
+                function duplicate(value) { return value + value; }
                 const twice = duplicate;
-                
+
                 parallel.from([1, 2, 3]).map(twice);
                 `);
 
-                const mapper = program.get("body.1.declarations.0.init");
-                expect(registerFunctionSpy).to.have.been.calledWith(mapper);
+                const mapper = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(mapper);
             });
 
             it("logs a warning if the declaration of the passed functor cannot be identified", function () {
-                registerFunctionSpy.returnValue = {
-                    identifier: "unique-id",
-                    node: undefined as any
-                };
-
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                
+
                 function compute(operation) {
                     return parallel.from([1, 2, 3]).map(operation);
                 }
-                
+
                 compute(() => value * 2);
                 `);
 
-                const mapper = program.get("body.1.body.body.0.argument.arguments.0");
-                expect(registerFunctionSpy).not.to.have.been.called;
+                const mapper = transpiled.get("body.1.body.body.0.argument.arguments.0");
+                expect(registerEntryFunctionSpy).not.to.have.been.called;
                 expect(warnSpy).to.have.been.calledWith(mapper, "The function identified by the given node could not be identified. Static code rewriting of the function is therefore not possible, dynamic function dispatching is used instead.");
             });
 
@@ -251,78 +255,92 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
             it("does not register the functor if it is a serialized function id", function () {
                 visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                
+
                 parallel.from([1, 2, 3]).map({ _______isFunctionId: true, identifier: 'test' });
                 `);
 
-                expect(registerFunctionSpy).not.to.have.been.called;
+                expect(registerEntryFunctionSpy).not.to.have.been.called;
             });
         });
 
         describe("filter", function () {
             it("registers the predicate", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.from([1, 2, 3]).filter(value => value % 2 === 0);
+                function predicate (value) {
+                    return value % 2 === 0;
+                }
+                
+                parallel.from([1, 2, 3]).filter(predicate);
                 `);
 
-                const predicate = program.get("body.1.expression.arguments.0");
-                expect(registerFunctionSpy).to.have.been.calledWith(predicate);
+                const predicate = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(predicate);
             });
         });
 
         describe("reduce", function () {
             it("registers the accumulator", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.from([1, 2, 3]).reduce(0, (memo, value) => memo + value);
+                function accumulator (memo, value) {
+                    return memo + value;
+                }
+                parallel.from([1, 2, 3]).reduce(0, accumulator);
                 `);
 
-                const accumulator = program.get("body.1.expression.arguments.1");
-                expect(registerFunctionSpy).to.have.been.calledWith(accumulator);
+                const accumulator = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(accumulator);
             });
 
             it("adds the accumulator as combiner if reduce is only called with two arguments", function () {
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.from([1, 2, 3]).reduce(0, (memo, value) => memo + value);
+                function accumulator (memo, value) {
+                    return memo + value;
+                }
+                parallel.from([1, 2, 3]).reduce(0, accumulator);
                 `);
 
-                const args = (program.get("body.1.expression.arguments") as any) as NodePath<t.Node>[];
+                const args = (transpiled.get("body.2.expression.arguments") as any) as NodePath<t.Node>[];
                 expect(args).to.have.length(3);
-                expect(args[2].isArrowFunctionExpression()).to.be.true;
+                expect(args[2].node).to.have.property("name").that.equals("accumulator");
             });
 
             it("does not add the combiner if reduce is called with three arguments", function () {
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 let combiner = (memo, value) => value + memo;
                 parallel.from([1, 2, 3]).reduce(0, (memo, value) => memo + value, combiner);
                 `);
 
-                const accumulator = program.get("body.2.expression.arguments.2");
+                const accumulator = transpiled.get("body.2.expression.arguments.2");
                 expect(accumulator.isIdentifier()).to.be.true;
+                expect(accumulator.node).to.have.property("name").that.equals("combiner");
             });
         });
 
         describe("inEnvironment", function () {
             it("registers the provider function", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.times(100, i => i**i).inEnvironment(() => ({ test: true }));
+                function environmentProvider() {
+                    return { test: true };
+                }
+                parallel.times(100, i => i**i).inEnvironment(environmentProvider);
                 `);
 
-                const generator = program.get("body.1.expression.arguments.0");
-                expect(registerFunctionSpy).to.have.been.calledWith(generator);
+                const generator = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(generator);
             });
 
             it("replaces the provider function with a serialized function call", function () {
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 parallel.times(100, i => i**i).inEnvironment((arg1, arg2) => ({ test: true }), 10, 20);
                 `);
 
-                const inEnvironmentCall = program.get("body.1.expression") as NodePath<t.CallExpression>;
+                const inEnvironmentCall = transpiled.get("body.1.expression") as NodePath<t.CallExpression>;
                 const generator = inEnvironmentCall.get("arguments.0");
 
                 expect(inEnvironmentCall.node.arguments).to.have.lengthOf(1);
@@ -345,26 +363,29 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
             });
 
             it("also allows passing non functions instead of the functor", function () {
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 parallel.times(100, "start value").inEnvironment({ test: true });
                 `);
 
-                const environment = program.get("body.1.expression.arguments.0") as NodePath<t.ObjectExpression>;
-                expect(registerFunctionSpy).not.to.have.been.called;
+                const environment = transpiled.get("body.1.expression.arguments.0") as NodePath<t.ObjectExpression>;
+                expect(registerEntryFunctionSpy).not.to.have.been.called;
                 expect(environment.node.properties[0]).to.have.deep.property("key.name").that.equals("test");
             });
         });
 
         describe("times", function () {
             it("registers the generator function", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.times(100, i => i**i);
+                function generator(i) {
+                    return i * i;
+                }
+                parallel.times(100, generator);
                 `);
 
-                const generator = program.get("body.1.expression.arguments.1");
-                expect(registerFunctionSpy).to.have.been.calledWith(generator);
+                const generator = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(generator);
             });
 
             it("also allows passing non functions instead of the functor", function () {
@@ -373,32 +394,33 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
                 parallel.times(100, "start value");
                 `);
 
-                expect(registerFunctionSpy).not.to.have.been.called;
+                expect(registerEntryFunctionSpy).not.to.have.been.called;
             });
         });
 
         describe("schedule", function () {
             it("registers the scheduled function", function () {
-                const program = visit(`
+                const {original} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
-                parallel.schedule(() => {
+                function job() {
                     for (let i = 0; i < 1000; ++i) {
                         // heavy computation
                     }
-                });
+                }
+                parallel.schedule(job);
                 `);
 
-                const func = program.get("body.1.expression.arguments.0");
-                expect(registerFunctionSpy).to.have.been.calledWith(func);
+                const func = original.program.body[1];
+                expect(registerEntryFunctionSpy).to.have.been.calledWith(func);
             });
 
             it("replaces the function call with a serialized function call", function () {
-                const program = visit(`
+                const {transpiled} = visit(`
                 import parallel from "${PARALLEL_ES_MODULE_NAME}";
                 parallel.schedule((arg1, arg2) => ({ test: true }), 10, 20);
                 `);
 
-                const scheduleCall = program.get("body.1.expression") as NodePath<t.CallExpression>;
+                const scheduleCall = transpiled.get("body.1.expression") as NodePath<t.CallExpression>;
                 const functor = scheduleCall.get("arguments.0");
 
                 expect(scheduleCall.node.arguments).to.have.lengthOf(1);
@@ -431,14 +453,15 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
                 });
                 `);
 
-                expect(registerFunctionSpy).not.to.have.been.called;
+                expect(registerEntryFunctionSpy).not.to.have.been.called;
             });
         });
     });
 
-    function visit(code: string): NodePath<t.Program> {
+    function visit(code: string) {
         let programPath: NodePath<t.Program> | undefined;
-        transform(code, {
+        const ast = parse(code, { sourceType: "module" });
+        transformFromAst((t as any).cloneDeep(ast), code, {
             filename: "test.js",
             plugins: [
                 {
@@ -452,6 +475,9 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
             ]
         });
 
-        return programPath!;
+        return {
+            original: ast as any,
+            transpiled: programPath!
+        };
     }
 });

@@ -9,6 +9,6 @@ const transformer = {
 };
 
 parallel.from([1, 2, 3]).map({
-    identifier: "static-object-property-case.js#program.body[1].declarations[0].init.properties[1].value",
+    identifier: "static:object-property-case.js/_anonymous",
     _______isFunctionId: true
 });

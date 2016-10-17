@@ -11,7 +11,7 @@ function transformData(data) {
         }
 
         return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-            identifier: "static-unique-extractor-names-case.js#program.body[2].body.body[0].body.body[1].argument.arguments[0]",
+            identifier: "static:unique-extractor-names-case.js/_anonymous",
             _______isFunctionId: true
         });
     }
@@ -23,12 +23,9 @@ function transformData(data) {
     }
 
     const reduced = parallel.from(data).inEnvironment(_environmentExtractor2()).reduce(0, {
-        identifier: "static-unique-extractor-names-case.js#program.body[2].body.body[2].declarations[0].init.arguments[1]",
+        identifier: "static:unique-extractor-names-case.js/_anonymous2",
         _______isFunctionId: true
-    }, function (memo, value) {
-        const _environment2 = arguments[arguments.length - 1];
-        return memo + _environment2.x;
-    });
+    }, (memo, value) => memo + x);
 
     return Promise.all(map(), reduced);
 }
