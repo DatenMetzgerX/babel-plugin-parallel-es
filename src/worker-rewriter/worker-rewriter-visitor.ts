@@ -2,7 +2,7 @@ import {Visitor, NodePath} from "babel-traverse";
 import * as t from "babel-types";
 import {createFunctionId} from "../util";
 import {ModulesUsingParallelRegistry} from "../modules-using-parallel-registry";
-import {IFunctorRegistration} from "../function-registration";
+import {IEntryFunctionRegistration} from "../function-registration";
 import {WORKER_FUNCTORS_REGISTRATION_MARKER} from "../constants";
 import {ModuleFunctionsRegistry} from "../function-extractor/module-functions-registry";
 
@@ -38,31 +38,19 @@ function addImports(module: ModuleFunctionsRegistry, path: NodePath<t.Node>) {
         const moduleImports = imports[referencedModule];
         for (const imported of moduleImports) {
             const id = path.hub.file.addImport(referencedModule, imported.imported);
-
             for (const reference of imported.references) {
-                reference.scope.rename(imported.local, id.name);
+                reference.name = id.name;
             }
         }
     }
 }
 
-function registerStaticFunction(insertionPoint: NodePath<t.Statement>, definition: IFunctorRegistration, module: ModuleFunctionsRegistry) {
-    const id = createFunctionId(definition);
-
-    let functionDefinition = definition.node as t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression;
-    let functorReference: t.Expression;
-
-    if (t.isFunctionDeclaration(functionDefinition)) {
-        functionDefinition.id = insertionPoint.scope.generateUidIdentifierBasedOnNode(functionDefinition.id);
-        insertionPoint.insertBefore(definition.node);
-        functorReference = functionDefinition.id;
-    } else {
-        functorReference = functionDefinition as t.FunctionExpression | t.ArrowFunctionExpression;
-    }
+function registerEntryFunction(definition: IEntryFunctionRegistration): t.Statement {
+    const id = createFunctionId(definition.functionId);
 
     const registerStaticFunctionMember = t.memberExpression(t.identifier("slaveFunctionLookupTable"), t.identifier("registerStaticFunction"));
-    const registerCall = t.callExpression(registerStaticFunctionMember, [id, functorReference]);
-    insertionPoint.insertBefore(t.expressionStatement(registerCall));
+    const registerCall = t.callExpression(registerStaticFunctionMember, [id, definition.identifier]);
+    return t.expressionStatement(registerCall);
 }
 
 export function createReWriterVisitor(registry: ModulesUsingParallelRegistry): Visitor {
@@ -73,10 +61,17 @@ export function createReWriterVisitor(registry: ModulesUsingParallelRegistry): V
             }
 
             for (const module of registry.modules) {
-                for (const definition of module.functions) {
-                    registerStaticFunction(path, definition, module);
+                let body: t.Statement[] = module.functions.slice();
+
+                for (const definition of module.entryFunctions) {
+                    body.push(registerEntryFunction(definition));
                 }
+
                 addImports(module, path);
+
+                const wrapper = t.expressionStatement(t.callExpression(t.functionExpression(undefined, [], t.blockStatement(body)), []));
+                const wrapperPath = (path.insertBefore(wrapper) as NodePath<t.Statement>[])[0];
+                wrapperPath.addComment("leading", module.fileName, false);
             }
         }
     };

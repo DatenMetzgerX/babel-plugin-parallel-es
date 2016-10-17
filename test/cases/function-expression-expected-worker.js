@@ -1,6 +1,10 @@
-    slaveFunctionLookupTable.registerStaticFunction({
-        identifier: 'static-function-expression-case.js#program.body[1].declaration.body.body[0].argument.arguments[0]',
-        _______isFunctionId: true
-    }, function (value) {
-        return value * 2;
-    });
+    /*function-expression-case.js*/(function () {
+        function _anonymous(value) {
+            return value * 2;
+        }
+
+        slaveFunctionLookupTable.registerStaticFunction({
+            identifier: 'static:function-expression-case.js/_anonymous',
+            _______isFunctionId: true
+        }, _anonymous);
+    })();

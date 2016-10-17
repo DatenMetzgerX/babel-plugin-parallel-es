@@ -1,14 +1,21 @@
 import {expect} from "chai";
 import * as t from "babel-types";
+import * as sinon from "sinon";
 import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
-import {toPath} from "../test-utils";
+import {Scope} from "babel-traverse";
 
 describe("ModuleFunctionRegistry", function () {
 
     let registry: ModuleFunctionsRegistry;
+    let scope: Scope;
+    let hasBindingSpy: Sinon.SinonStub;
+    let generateUidIdentifierBasedOnNodeSpy: Sinon.SinonStub;
 
     beforeEach(function () {
-        registry = new ModuleFunctionsRegistry("test.js");
+        hasBindingSpy = sinon.stub().returns(true);
+        generateUidIdentifierBasedOnNodeSpy = sinon.stub();
+        scope = { generateUidIdentifierBasedOnNode: generateUidIdentifierBasedOnNodeSpy, hasBinding: hasBindingSpy } as any;
+        registry = new ModuleFunctionsRegistry("test.js", scope);
     });
 
     it("has the module name passed in the constructor", function () {
@@ -26,7 +33,7 @@ describe("ModuleFunctionRegistry", function () {
         const sourceMap = {} as any;
 
         // act
-        registry = new ModuleFunctionsRegistry("test.js", sourceMap);
+        registry = new ModuleFunctionsRegistry("test.js", scope, sourceMap);
 
         // assert
         expect(registry.map).to.equal(sourceMap);
@@ -38,95 +45,137 @@ describe("ModuleFunctionRegistry", function () {
         });
     });
 
+    describe("entryFunctions", function () {
+        it("returns an empty array by default", function () {
+            expect(registry.entryFunctions).to.eql([]);
+        });
+    });
+
     describe("registerFunction", function () {
         it("registers the given functions", function () {
             // arrange
             const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const pathFunc1 = toPath(func1);
-            registry.registerFunction(pathFunc1);
+            registry.registerFunction(func1);
 
             const func2 = t.functionDeclaration(t.identifier("func2"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const pathFunc2 = toPath(func2);
-            pathFunc2.key = "1";
-            registry.registerFunction(pathFunc2);
+            registry.registerFunction(func2);
 
             // act, assert
-            expect(registry.functions).to.eql([{
-                identifier: "static-test.js#program.body[0]",
-                node: func1
-            }, {
-                identifier: "static-test.js#program.body[1]",
-                node: func2
-            }]);
+            expect(registry.functions).to.eql([func1, func2]);
         });
 
         it("registers a function only once when called multiple times", function () {
             // arrange
             const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const pathFunc1 = toPath(func1);
-            registry.registerFunction(pathFunc1);
+            registry.registerFunction(func1);
 
             // act
-            registry.registerFunction(pathFunc1);
+            registry.registerFunction(func1);
 
             // assert
-            expect(registry.functions).to.eql([{
-                identifier: "static-test.js#program.body[0]",
+            expect(registry.functions).to.eql([func1]);
+        });
+
+        it("returns the identifier of the registered function", function () {
+            // arrange
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+
+            // act, assert
+            expect(registry.registerFunction(func1)).to.equal(func1.id);
+        });
+
+        it("assigns the function a new unique id if the binding is not global (locally inside of a function)", function () {
+            // arrange
+            const uniqueName = t.identifier("_name");
+            hasBindingSpy.returns(false);
+            generateUidIdentifierBasedOnNodeSpy.returns(uniqueName);
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+
+            // act
+            registry.registerFunction(func1);
+
+            // assert
+            expect(func1.id).to.equal(uniqueName);
+        });
+
+        it("returns the new generated id for a not globally bound function", function () {
+            // arrange
+            const uniqueName = t.identifier("_name");
+            hasBindingSpy.returns(false);
+            generateUidIdentifierBasedOnNodeSpy.returns(uniqueName);
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+
+            // act, assert
+            expect(registry.registerFunction(func1)).to.equal(uniqueName);
+        });
+
+        it("throws if the passed node is not a Function-Declaration", function () {
+            // arrange
+            const statement = t.expressionStatement(t.stringLiteral("test"));
+
+            // act, assert
+            expect(() => registry.registerFunction(statement as any)).to.throw(`Expected type "FunctionDeclaration" with option {}`);
+        });
+    });
+
+    describe("registerEntryFunction", function () {
+        it("registers the function", function () {
+            // arrange
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+
+            // act
+            registry.registerEntryFunction(func1);
+
+            // assert
+            expect(registry.entryFunctions).to.eql([{
+                functionId: "static:test.js/func1",
+                identifier: func1.id,
                 node: func1
             }]);
         });
 
-        it("throws if the passed in path is neither a Function-Declaration, -Expression or -ArrowExpression", function () {
+        it("registers the function only once", function () {
             // arrange
-            const statement = t.expressionStatement(t.stringLiteral("test"));
-            const path = toPath(statement);
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+
+            // act
+            registry.registerEntryFunction(func1);
+            registry.registerEntryFunction(func1);
+
+            // assert
+            expect(registry.entryFunctions).to.eql([{
+                functionId: "static:test.js/func1",
+                identifier: func1.id,
+                node: func1
+            }]);
+        });
+
+        it("adds a registration for an already registered, non entry function", function () {
+            // arrange
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+            registry.registerFunction(func1);
+
+            // act
+            registry.registerEntryFunction(func1);
+
+            // assert
+            expect(registry.entryFunctions).to.eql([{
+                functionId: "static:test.js/func1",
+                identifier: func1.id,
+                node: func1
+            }]);
+        });
+
+        it("returns the registration", function () {
+            // arrange
+            const func1 = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
 
             // act, assert
-            expect(() => registry.registerFunction(path as any)).to.throw("");
-        });
-
-        it("registers the passed FunctionDeclaration", function () {
-            // arrange
-            const declaration = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const path = toPath(declaration);
-
-            // act
-            registry.registerFunction(path);
-
-            // assert
-            expect(registry.functions).to.eql([{
-                identifier: "static-test.js#program.body[0]",
-                node: declaration
-            }]);
-        });
-
-        it("registers the passed FunctionExpression", function () {
-            // arrange
-            const expression = t.functionExpression(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const path = toPath(t.expressionStatement(expression)).get("expression");
-
-            // act
-            registry.registerFunction(path as any);
-
-            // assert
-            expect(registry.functions).to.eql([{
-                identifier: "static-test.js#program.body[0].expression",
-                node: expression
-            }]);
-        });
-
-        it("registers the passed ArrowFunctionExpression", function () {
-            const expression = t.arrowFunctionExpression([], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const path = toPath(t.expressionStatement(expression)).get("expression");
-
-            // act
-            registry.registerFunction(path as any);
-
-            // assert
-            expect(registry.functions).to.eql([{
-                identifier: "static-test.js#program.body[0].expression",
-                node: expression
-            }]);
+            expect(registry.registerEntryFunction(func1)).to.eql({
+                functionId: "static:test.js/func1",
+                identifier: func1.id,
+                node: func1
+            });
         });
     });
 
@@ -138,8 +187,7 @@ describe("ModuleFunctionRegistry", function () {
         it("returns false if the registry contains a registration", function () {
             // arrange
             const declaration = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            const path = toPath(declaration);
-            registry.registerFunction(path);
+            registry.registerFunction(declaration);
 
             // act, assert
             expect(registry.empty).to.be.false;
