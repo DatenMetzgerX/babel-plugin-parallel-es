@@ -38,7 +38,7 @@ export function ParallelFunctorsExtractorVisitor (modulesUsingParallelRegistry: 
     return {
         Program(path: NodePath<t.Program>) {
             const options = path.hub.file.opts as TransformOptions;
-            const filename = options.filename!;
+            const filename = options.filenameRelative || options.filename!;
             const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, path.scope, getSourceMap(path));
 
             modulesUsingParallelRegistry.remove(filename);
