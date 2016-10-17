@@ -119,7 +119,7 @@ function rewriteReferenceToOuterScope(path: NodePath<t.Identifier>, binding: Bin
     }
 
     if (binding.path.isVariableDeclarator() && binding.path.get("init").isFunction()) {
-        // todo a variable that references a function
+        transpileReferencedFunction(binding.path.get("init") as NodePath<t.Function>, path, state);
     } else if (t.isFunction(binding.path.node)) {
         transpileReferencedFunction(binding.path as NodePath<t.Function>, path, state);
     } else {
