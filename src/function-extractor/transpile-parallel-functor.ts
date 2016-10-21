@@ -97,7 +97,7 @@ function transpileReferencedFunction (referencedFunction: NodePath<t.Function>, 
 
     if (transpilationResult.environmentVariables.length > 0 && transpilationResult.environmentName) {
         // transpile function, create wrapper only if function itself accessed any variables...
-        // However, we should regsiter the function in all cases
+        // However, we should register the function in all cases
         const wrapperId = getReferencedFunctionWrapper(reference, transpilationResult.transpiledFunctor, state);
         reference.replaceWith(wrapperId);
     } else {
