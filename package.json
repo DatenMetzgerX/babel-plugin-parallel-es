@@ -43,7 +43,7 @@
     "coveralls": "^2.11.14",
     "mocha": "^3.1.2",
     "nyc": "^8.3.2",
-    "parallel-es": "^0.0.6",
+    "parallel-es": "^0.1.0",
     "sinon": "^1.17.6",
     "sinon-chai": "^2.8.0",
     "ts-node": "^1.6.0",
