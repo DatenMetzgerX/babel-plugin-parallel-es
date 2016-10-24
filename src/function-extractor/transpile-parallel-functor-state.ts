@@ -8,7 +8,7 @@ export interface ITranspileParallelFunctorState {
     readonly module: ModuleFunctionsRegistry;
     readonly originalFunctor: NodePath<t.Function>;
     readonly scope: Scope;
-    readonly referencedFunctionWrappers: Map<string, t.Identifier>;
+    readonly referencedFunctionWrappers: Map<string, t.FunctionDeclaration>;
     readonly needsEnvironment: boolean;
 
     addAccessedVariable(name: string): void;
@@ -16,7 +16,7 @@ export interface ITranspileParallelFunctorState {
 
 export class TranspileParallelFunctorState implements ITranspileParallelFunctorState {
     public environment?: t.Identifier;
-    public referencedFunctionWrappers = new Map<string, t.Identifier>();
+    public referencedFunctionWrappers = new Map<string, t.FunctionDeclaration>();
 
     public get scope(): Scope {
         return this.originalFunctor.scope;
@@ -46,6 +46,8 @@ export class TranspileParallelFunctorState implements ITranspileParallelFunctorS
 }
 
 export class TranspileParallelFunctorChildState implements ITranspileParallelFunctorState {
+    public readonly referencedFunctionWrappers = new Map<string, t.FunctionDeclaration>();
+
     private accessedVariablesSet = new Set<string>();
 
     public get accessedVariables(): string[] {
@@ -58,10 +60,6 @@ export class TranspileParallelFunctorChildState implements ITranspileParallelFun
 
     public get scope(): Scope {
         return this.originalFunctor.scope;
-    }
-
-    public get referencedFunctionWrappers(): Map<string, t.Identifier> {
-        return this.parent.referencedFunctionWrappers;
     }
 
     public get needsEnvironment(): boolean {
