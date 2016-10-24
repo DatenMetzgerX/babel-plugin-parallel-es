@@ -60,20 +60,27 @@ function resolveInFunctorScope(name: string, start: NodePath<t.Node>, functorSco
  * @returns {t.Identifier} the identifier of the wrapper function
  */
 function getReferencedFunctionWrapper(reference: NodePath<t.Identifier>, functionToWrap: t.FunctionDeclaration, state: ITranspileParallelFunctorState): t.Identifier {
-    const wrapperFunctionIdentifier = state.referencedFunctionWrappers.get(functionToWrap.id.name);
+    const existingWrapper = state.referencedFunctionWrappers.get(functionToWrap.id.name);
 
-    if (wrapperFunctionIdentifier) {
-        return wrapperFunctionIdentifier;
+    if (existingWrapper) {
+        return existingWrapper.id;
     }
 
     const wrapperId = reference.scope.generateUidIdentifier(functionToWrap.id.name + "Wrapper");
 
+    // https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments Slicing arguments isn't a good idea
     const wrapperFunction = template(`
             function ID() {
-                const callee = CALLEE;
-                const args = Array.prototype.slice.call(arguments);
-                args.length = args.length < callee.length ? callee.length : args.length;
-                args.push(ENVIRONMENT);
+                "use strict";
+                var callee = CALLEE;
+                var $_args_len = arguments.length;
+                var $_len = ($_args_len < callee.length ? callee.length : $_args_len) + 1;
+                var args = new Array($_len); 
+                for(var $_i = 0; $_i < $_args_len; ++$_i) {
+                    args[$_i] = arguments[$_i];
+                }
+                
+                args[$_len - 1] = ENVIRONMENT;
                 return callee.apply(this, args);
             }
         `)({
@@ -82,10 +89,7 @@ function getReferencedFunctionWrapper(reference: NodePath<t.Identifier>, functio
             ID: wrapperId
         }) as t.FunctionDeclaration;
 
-    // insert wrapper
-    const wrapperPath = (reference.getStatementParent().insertBefore(wrapperFunction) as NodePath<t.Node>[])[0];
-    wrapperPath.skip();
-    state.referencedFunctionWrappers.set(functionToWrap.id.name, wrapperId);
+    state.referencedFunctionWrappers.set(functionToWrap.id.name, wrapperFunction);
 
     return wrapperId;
 }
@@ -185,6 +189,10 @@ function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state:
     const transpiledFunctor = toFunctionDeclaration(clonedFunctor, state.scope);
 
     traverse(transpiledFunctor, RewriterVisitor, state.scope, state);
+
+    for (const wrapper of Array.from(state.referencedFunctionWrappers.values())) {
+        transpiledFunctor.body.body.unshift(wrapper);
+    }
 
     if (state.needsEnvironment) {
         transpiledFunctor.body.body.unshift(template("const ENVIRONMENT = arguments[arguments.length - 1];")({ENVIRONMENT: state.environment!}) as t.VariableDeclaration);

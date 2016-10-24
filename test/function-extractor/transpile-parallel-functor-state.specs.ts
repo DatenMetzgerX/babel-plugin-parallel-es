@@ -134,8 +134,8 @@ describe("TranspileParallelFunctorChildState", function () {
     });
 
     describe("referencedFunctionWrappers", function () {
-        it("equals the map from the parent state", function () {
-            expect(childState.referencedFunctionWrappers).to.equal(parentState.referencedFunctionWrappers);
+        it("does not equal the map from the parent state", function () {
+            expect(childState.referencedFunctionWrappers).not.to.equal(parentState.referencedFunctionWrappers);
         });
     });
 
