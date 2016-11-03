@@ -22,3 +22,7 @@ deploy:
   on:
     tags: true
     repo: DatenMetzgerX/babel-plugin-parallel-es
+
+cache:
+  directories:
+  - $HOME/.yarn-cache
