@@ -24,7 +24,7 @@ function getSourceMap(path: NodePath<t.Program>): RawSourceMap {
         sourceRoot: path.hub.file.opts.sourceRoot,
         sources: [filename],
         sourcesContent: [path.hub.file.code],
-        version: "3"
+        version: 3
     };
 }
 

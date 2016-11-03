@@ -135,7 +135,7 @@ describe("ParallelFunctorsExtractorVisitor", function () {
     describe("SourceMaps", function () {
         it("uses a copy of the input source map in the module", function () {
             // arrange
-            let sourceMap = { mappings: "", names: [], sources: [], sourcesContent: [], version: "3" };
+            let sourceMap = { file: "test.js", mappings: "", names: [], sources: [], sourcesContent: [], version: 3 };
 
             // act
             visit(`
@@ -173,7 +173,7 @@ describe("ParallelFunctorsExtractorVisitor", function () {
                 sourcesContent: [
                     source
                 ],
-                version: "3"
+                version: 3
             });
         });
     });
