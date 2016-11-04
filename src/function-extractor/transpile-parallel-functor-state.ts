@@ -1,29 +1,26 @@
 import * as t from "babel-types";
 import {Scope, NodePath} from "babel-traverse";
-import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 
 export interface ITranspileParallelFunctorState {
     readonly accessedVariables: string[];
-    environment?: t.Identifier;
+    hasEnvironment: boolean;
     readonly module: ModuleFunctionsRegistry;
     readonly originalFunctor: NodePath<t.Function>;
     readonly scope: Scope;
-    readonly referencedFunctionWrappers: Map<string, t.FunctionDeclaration>;
-    readonly needsEnvironment: boolean;
+    readonly usesEnvironment: boolean;
 
     addAccessedVariable(name: string): void;
 }
 
 export class TranspileParallelFunctorState implements ITranspileParallelFunctorState {
-    public environment?: t.Identifier;
-    public referencedFunctionWrappers = new Map<string, t.FunctionDeclaration>();
-
+    public hasEnvironment = false;
     public get scope(): Scope {
         return this.originalFunctor.scope;
     }
 
-    public get needsEnvironment(): boolean {
-        return this.accessedVariablesSet.size > 0 && !!this.environment;
+    public get usesEnvironment(): boolean {
+        return this.accessedVariablesSet.size > 0 && this.hasEnvironment;
     }
 
     public get accessedVariables(): string[] {
@@ -37,7 +34,7 @@ export class TranspileParallelFunctorState implements ITranspileParallelFunctorS
     }
 
     public addAccessedVariable(name: string): void {
-        if (!this.environment) {
+        if (!this.hasEnvironment) {
             throw new Error("This state has no environment and therefore no variables can be added");
         }
 
@@ -46,8 +43,6 @@ export class TranspileParallelFunctorState implements ITranspileParallelFunctorS
 }
 
 export class TranspileParallelFunctorChildState implements ITranspileParallelFunctorState {
-    public readonly referencedFunctionWrappers = new Map<string, t.FunctionDeclaration>();
-
     private accessedVariablesSet = new Set<string>();
 
     public get accessedVariables(): string[] {
@@ -62,12 +57,12 @@ export class TranspileParallelFunctorChildState implements ITranspileParallelFun
         return this.originalFunctor.scope;
     }
 
-    public get needsEnvironment(): boolean {
-        return this.accessedVariablesSet.size > 0 && !!this.environment;
+    public get usesEnvironment(): boolean {
+        return this.accessedVariablesSet.size > 0 && this.hasEnvironment;
     }
 
-    public get environment(): t.Identifier | undefined {
-        return this.parent.environment;
+    public get hasEnvironment(): boolean {
+        return this.parent.hasEnvironment;
     }
 
     constructor(public originalFunctor: NodePath<t.Function>, private parent: ITranspileParallelFunctorState) {

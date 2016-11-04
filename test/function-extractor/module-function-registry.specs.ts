@@ -1,7 +1,7 @@
 import {expect} from "chai";
 import * as t from "babel-types";
 import * as sinon from "sinon";
-import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/module-functions-registry";
 import {Scope} from "babel-traverse";
 
 describe("ModuleFunctionRegistry", function () {
@@ -48,6 +48,27 @@ describe("ModuleFunctionRegistry", function () {
     describe("entryFunctions", function () {
         it("returns an empty array by default", function () {
             expect(registry.entryFunctions).to.eql([]);
+        });
+    });
+
+    describe("environmentVariables", function () {
+        it("returns an empty array by default", function () {
+            expect(registry.environmentVariables).to.eql([]);
+        });
+    });
+
+    describe("empty", function () {
+        it("returns true by default", function () {
+            expect(registry.empty).to.be.true;
+        });
+
+        it("returns false if the registry contains a registration", function () {
+            // arrange
+            const declaration = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
+            registry.registerFunction(declaration);
+
+            // act, assert
+            expect(registry.empty).to.be.false;
         });
     });
 
@@ -179,18 +200,65 @@ describe("ModuleFunctionRegistry", function () {
         });
     });
 
-    describe("empty", function () {
-        it("returns true by default", function () {
-            expect(registry.empty).to.be.true;
+    describe("addEnvironmentVariable", function () {
+        it("adds the variable with the given name to the environment variables", function () {
+            // act
+            registry.addEnvironmentVariable("x");
+
+            // assert
+            expect(registry.environmentVariables).to.eql(["x"]);
         });
 
-        it("returns false if the registry contains a registration", function () {
+        it("only adds unique variable names", function () {
             // arrange
-            const declaration = t.functionDeclaration(t.identifier("func1"), [], t.blockStatement([t.expressionStatement(t.stringLiteral("test"))]));
-            registry.registerFunction(declaration);
+            registry.addEnvironmentVariable("x");
 
-            // act, assert
-            expect(registry.empty).to.be.false;
+            // act
+            registry.addEnvironmentVariable("x");
+
+            // assert
+            expect(registry.environmentVariables).to.eql(["x"]);
         });
     });
+
+    describe("addEnvironmentVariables", function () {
+        it("adds all environment variables of the array", function () {
+            // act
+            registry.addEnvironmentVariables(["x", "y", "z"]);
+
+            // assert
+            expect(registry.environmentVariables).to.eql(["x", "y", "z"]);
+        });
+
+        it("only adds unique variable names", function () {
+            // arrange
+            registry.addEnvironmentVariable("x");
+
+            // act
+            registry.addEnvironmentVariables(["x", "y", "y"]);
+
+            // assert
+            expect(registry.environmentVariables).to.eql(["x", "y"]);
+        });
+    });
+
+    describe("addFunctionTranspilationResult", function () {
+        it("adds the transpilation result that can be retrieved using the original function node", function () {
+            // arrange
+            const func = t.functionDeclaration(t.identifier("test"), [], t.blockStatement([]));
+            const transpiled = cloneNode(func);
+
+            const result = { environmentVariables: [], transpiledFunctor: transpiled };
+
+            // act
+            registry.addFunctionTranspilationResult(func, result);
+
+            // assert
+            expect(registry.getFunctionTranspilationResult(func)).to.equal(result);
+        });
+    });
+
+    function cloneNode<T extends t.Node>(node: T): T {
+        return (t as any).cloneDeep(node) as T;
+    }
 });

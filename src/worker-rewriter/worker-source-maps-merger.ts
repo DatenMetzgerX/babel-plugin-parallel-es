@@ -1,5 +1,5 @@
 import {RawSourceMap, SourceMapConsumer, SourceMapGenerator} from "source-map";
-import {ModuleFunctionsRegistry} from "../function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 
 function removeSourceFromMap(sourceToRemove: string, map: RawSourceMap): RawSourceMap {
     const consumer = new SourceMapConsumer(map);

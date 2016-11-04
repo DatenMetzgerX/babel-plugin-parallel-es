@@ -1,37 +1,30 @@
   (function () {
+    let upperLimit;
+
     function _anonymous2(value) {
-      const _environment = arguments[arguments.length - 1];
-      let result = 0;for (let i = 0; i < value && i < _environment.upperLimit; ++i) {
+      let result = 0;for (let i = 0; i < value && i < upperLimit; ++i) {
         result += i;
       }return result;
     }
 
     function _anonymous(value) {
-      const _environment = arguments[arguments.length - 1];
-
-      function _anonymous2Wrapper() {
-        "use strict";
-
-        var callee = _anonymous2;
-        var $_args_len = arguments.length;
-        var $_len = ($_args_len < callee.length ? callee.length : $_args_len) + 1;
-        var args = new Array($_len);
-
-        for (var $_i = 0; $_i < $_args_len; ++$_i) {
-          args[$_i] = arguments[$_i];
-        }
-
-        args[$_len - 1] = _environment;
-        return callee.apply(this, args);
-      }
-
       const result = [];for (let i = 0; i < value; ++i) {
-        result.push(_anonymous2Wrapper(i));
+        result.push(_anonymous2(i));
       }return result;
     }
 
+    function _entry_anonymous() {
+      try {
+        const _environment = arguments[arguments.length - 1];
+        upperLimit = _environment.upperLimit;
+        return _anonymous.apply(this, arguments);
+      } finally {
+        upperLimit = undefined;
+      }
+    }
+
     slaveFunctionLookupTable.registerStaticFunction({
-      identifier: 'static:call-function-expression-from-outer-scope-in-for-loop-case.js/_anonymous',
+      identifier: 'static:call-function-expression-from-outer-scope-in-for-loop-case.js/_entry_anonymous',
       _______isFunctionId: true
-    }, _anonymous);
+    }, _entry_anonymous);
   })();

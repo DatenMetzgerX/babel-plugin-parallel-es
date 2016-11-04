@@ -6,7 +6,7 @@ import {
 } from "../../src/function-extractor/transpile-parallel-functor-state";
 import {toPath} from "../test-utils";
 import {NodePath} from "babel-traverse";
-import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/module-functions-registry";
 
 describe("TranspileParallelFunctorState", function () {
 
@@ -20,16 +20,9 @@ describe("TranspileParallelFunctorState", function () {
         state = new TranspileParallelFunctorState(originalFunctor, module);
     });
 
-    describe("environment", function () {
-        it("is undefined by default", function () {
-            expect(state.environment).to.be.undefined;
-        });
-    });
-
-    describe("referencedFunctionWrappers", function () {
-        it("is empty by default", function () {
-            expect(state.referencedFunctionWrappers).not.to.be.undefined;
-            expect(state.referencedFunctionWrappers.size).to.equal(0);
+    describe("hasEnvironment", function () {
+        it("is false by default", function () {
+            expect(state.hasEnvironment).to.be.false;
         });
     });
 
@@ -39,30 +32,30 @@ describe("TranspileParallelFunctorState", function () {
         });
     });
 
-    describe("needsEnvironment", function () {
+    describe("usesEnvironment", function () {
         it("returns false if the state has no environment set (default)", function () {
             // arrange
-            state.environment = undefined;
+            state.hasEnvironment = false;
 
             // act, assert
-            expect(state.needsEnvironment).to.be.false;
+            expect(state.usesEnvironment).to.be.false;
         });
 
         it("returns false if an environment is set but the accessed variables is empty", function () {
             // arrange
-            state.environment = t.identifier("environment");
+            state.hasEnvironment = true;
 
             // act
-            expect(state.needsEnvironment).to.be.false;
+            expect(state.usesEnvironment).to.be.false;
         });
 
         it("returns true if an environment is set and the accessed variables contain at least one name", function () {
             // arrange
-            state.environment = t.identifier("environment");
+            state.hasEnvironment = true;
             state.addAccessedVariable("a");
 
             // act, assert
-            expect(state.needsEnvironment).to.be.true;
+            expect(state.usesEnvironment).to.be.true;
         });
     });
 
@@ -73,7 +66,7 @@ describe("TranspileParallelFunctorState", function () {
 
         it("returns an array containing the registered variables", function () {
             // arrange
-            state.environment = t.identifier("environment");
+            state.hasEnvironment = true;
             state.addAccessedVariable("a");
             state.addAccessedVariable("b");
 
@@ -97,7 +90,7 @@ describe("TranspileParallelFunctorState", function () {
     describe("addAccessedVariable", function () {
         it("does only add unique names add duplicates", function () {
             // arrange
-            state.environment = t.identifier("environment");
+            state.hasEnvironment = true;
 
             // act
             state.addAccessedVariable("a");
@@ -123,19 +116,13 @@ describe("TranspileParallelFunctorChildState", function () {
         childFunctor = toPath(t.functionDeclaration(t.identifier("child"), [], t.blockStatement([])));
         module = new ModuleFunctionsRegistry("test.js", {} as any);
         parentState = new TranspileParallelFunctorState(originalFunctor, module);
-        parentState.environment = t.identifier("environment");
+        parentState.hasEnvironment = true;
         childState = new TranspileParallelFunctorChildState(childFunctor, parentState);
     });
 
     describe("environment", function () {
         it("it returns the environment of the parent state", function () {
-            expect(childState.environment).to.be.equal(parentState.environment);
-        });
-    });
-
-    describe("referencedFunctionWrappers", function () {
-        it("does not equal the map from the parent state", function () {
-            expect(childState.referencedFunctionWrappers).not.to.equal(parentState.referencedFunctionWrappers);
+            expect(childState.hasEnvironment).to.be.equal(parentState.hasEnvironment);
         });
     });
 
@@ -145,24 +132,24 @@ describe("TranspileParallelFunctorChildState", function () {
         });
     });
 
-    describe("needsEnvironment", function () {
+    describe("usesEnvironment", function () {
         it("returns false if the parent has no environment set (default)", function () {
             // arrange
-            parentState.environment = undefined;
+            parentState.hasEnvironment = false;
 
             // act, assert
-            expect(childState.needsEnvironment).to.be.false;
+            expect(childState.usesEnvironment).to.be.false;
         });
 
         it("returns false if the parent has an environment but the accessed variables is empty", function () {
-            expect(childState.needsEnvironment).to.be.false;
+            expect(childState.usesEnvironment).to.be.false;
         });
 
         it("returns true if the parent has an environment set and the accessed variables contain at least one name", function () {
             childState.addAccessedVariable("a");
 
             // act, assert
-            expect(childState.needsEnvironment).to.be.true;
+            expect(childState.usesEnvironment).to.be.true;
         });
     });
 

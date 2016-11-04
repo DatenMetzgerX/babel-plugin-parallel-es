@@ -17,10 +17,10 @@ function transformData(data) {
     }
 
     return parallel.from(data).inEnvironment(_environmentExtractor2()).map({
-        identifier: "static:multiple-environments-case.js/_anonymous2",
+        identifier: "static:multiple-environments-case.js/_entry_anonymous2",
         _______isFunctionId: true
     }).inEnvironment(_environmentExtractor()).filter({
-        identifier: "static:multiple-environments-case.js/_anonymous",
+        identifier: "static:multiple-environments-case.js/_entry_anonymous",
         _______isFunctionId: true
     });
 }

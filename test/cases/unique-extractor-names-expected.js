@@ -11,7 +11,7 @@ function transformData(data) {
         }
 
         return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-            identifier: "static:unique-extractor-names-case.js/_anonymous",
+            identifier: "static:unique-extractor-names-case.js/_entry_anonymous",
             _______isFunctionId: true
         });
     }
@@ -23,7 +23,7 @@ function transformData(data) {
     }
 
     const reduced = parallel.from(data).inEnvironment(_environmentExtractor2()).reduce(0, {
-        identifier: "static:unique-extractor-names-case.js/_anonymous2",
+        identifier: "static:unique-extractor-names-case.js/_entry_anonymous2",
         _______isFunctionId: true
     }, (memo, value) => memo + x);
 

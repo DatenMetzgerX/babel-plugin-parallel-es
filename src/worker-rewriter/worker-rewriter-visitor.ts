@@ -4,7 +4,7 @@ import {createFunctionId} from "../util";
 import {ModulesUsingParallelRegistry} from "../modules-using-parallel-registry";
 import {IEntryFunctionRegistration} from "../function-registration";
 import {WORKER_FUNCTORS_REGISTRATION_MARKER} from "../constants";
-import {ModuleFunctionsRegistry} from "../function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 
 /**
  * Removes the worker slave marker from a leading or trailing comment
@@ -53,6 +53,16 @@ function registerEntryFunction(definition: IEntryFunctionRegistration): t.Statem
     return t.expressionStatement(registerCall);
 }
 
+function getEnvironmentVariablesDeclaration(environmentVariables: string[]): t.Statement | undefined {
+    if (environmentVariables.length === 0) {
+        return undefined;
+    }
+
+    const declarations = environmentVariables.map(variable => t.variableDeclarator(t.identifier(variable)));
+
+    return t.variableDeclaration("let", declarations);
+}
+
 export function createReWriterVisitor(registry: ModulesUsingParallelRegistry): Visitor {
     return {
         Statement(path: NodePath<t.Statement>) {
@@ -61,7 +71,12 @@ export function createReWriterVisitor(registry: ModulesUsingParallelRegistry): V
             }
 
             for (const module of registry.modules) {
+                const environmentVariablesDeclaration = getEnvironmentVariablesDeclaration(module.environmentVariables);
                 let body: t.Statement[] = module.functions.slice();
+
+                if (environmentVariablesDeclaration) {
+                    body.unshift(environmentVariablesDeclaration);
+                }
 
                 for (const definition of module.entryFunctions) {
                     body.push(registerEntryFunction(definition));

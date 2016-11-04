@@ -14,7 +14,7 @@ function mapper(value) {
 
 export function transformData(data) {
     return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-        identifier: "static:function-declaration-with-environment-case.js/mapper",
+        identifier: "static:function-declaration-with-environment-case.js/_entrymapper",
         _______isFunctionId: true
     });
 }

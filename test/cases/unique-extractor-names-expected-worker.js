@@ -1,20 +1,40 @@
   /*unique-extractor-names-case.js*/(function () {
+    let x;
+
     function _anonymous(value) {
-      const _environment = arguments[arguments.length - 1];
-      return value * _environment.x;
+      return value * x;
+    }
+
+    function _entry_anonymous() {
+      try {
+        const _environment = arguments[arguments.length - 1];
+        x = _environment.x;
+        return _anonymous.apply(this, arguments);
+      } finally {
+        x = undefined;
+      }
     }
 
     function _anonymous2(memo, value) {
-      const _environment2 = arguments[arguments.length - 1];
-      return memo + _environment2.x;
+      return memo + x;
+    }
+
+    function _entry_anonymous2() {
+      try {
+        const _environment2 = arguments[arguments.length - 1];
+        x = _environment2.x;
+        return _anonymous2.apply(this, arguments);
+      } finally {
+        x = undefined;
+      }
     }
 
     slaveFunctionLookupTable.registerStaticFunction({
-      identifier: 'static:unique-extractor-names-case.js/_anonymous',
+      identifier: 'static:unique-extractor-names-case.js/_entry_anonymous',
       _______isFunctionId: true
-    }, _anonymous);
+    }, _entry_anonymous);
     slaveFunctionLookupTable.registerStaticFunction({
-      identifier: 'static:unique-extractor-names-case.js/_anonymous2',
+      identifier: 'static:unique-extractor-names-case.js/_entry_anonymous2',
       _______isFunctionId: true
-    }, _anonymous2);
+    }, _entry_anonymous2);
   })();

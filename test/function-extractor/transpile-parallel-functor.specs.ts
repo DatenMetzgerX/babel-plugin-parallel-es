@@ -6,7 +6,7 @@ import * as t from "babel-types";
 import {transform} from "babel-core";
 import {NodePath, Scope} from "babel-traverse";
 
-import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/module-functions-registry";
 import {PARALLEL_METHODS, isParallelFunctor} from "../../src/function-extractor/parallel-methods";
 import {transpileParallelFunctor} from "../../src/function-extractor/transpile-parallel-functor";
 

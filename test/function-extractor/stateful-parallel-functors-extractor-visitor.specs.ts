@@ -8,7 +8,7 @@ import * as t from "babel-types";
 import {NodePath, Scope} from "babel-traverse";
 import * as util from "../../src/util";
 import {PARALLEL_ES_MODULE_NAME} from "../../src/constants";
-import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/module-functions-registry";
 import {StatefulParallelFunctorsExtractorVisitor} from "../../src/function-extractor/stateful-parallel-functors-extractor-visitor";
 chaiUse(sinonChai);
 

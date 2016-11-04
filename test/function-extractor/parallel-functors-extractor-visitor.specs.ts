@@ -5,7 +5,7 @@ import {ParallelFunctorsExtractorVisitor} from "../../src/function-extractor/par
 import {ModulesUsingParallelRegistry} from "../../src/modules-using-parallel-registry";
 import {PARALLEL_ES_MODULE_NAME} from "../../src/constants";
 import {RawSourceMap} from "source-map";
-import {ModuleFunctionsRegistry} from "../../src/function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "../../src/module-functions-registry";
 
 describe("ParallelFunctorsExtractorVisitor", function () {
     let registry: ModulesUsingParallelRegistry;

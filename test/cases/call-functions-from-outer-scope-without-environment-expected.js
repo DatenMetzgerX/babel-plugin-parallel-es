@@ -17,6 +17,6 @@ function _environmentExtractor() {
 }
 
 parallel.from([2, { value: 2 }, 3]).inEnvironment(_environmentExtractor()).map({
-    identifier: "static:call-functions-from-outer-scope-without-environment-case.js/_anonymous",
+    identifier: "static:call-functions-from-outer-scope-without-environment-case.js/_entry_anonymous",
     _______isFunctionId: true
 });

@@ -1,6 +1,6 @@
 import * as t from "babel-types";
-import {NodePath, Visitor} from "babel-traverse";
-import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {NodePath, Visitor, Scope} from "babel-traverse";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 import {PARALLEL_ES_MODULE_NAME} from "../constants";
 import {warn, createFunctionId, createSerializedFunctionCall} from "../util";
 import {transpileParallelFunctor} from "./transpile-parallel-functor";
@@ -96,16 +96,56 @@ function addInEnvironmentCall(call: NodePath<t.CallExpression>, environmentProvi
     call.get("callee").replaceWith(t.memberExpression(t.callExpression(inEnvironment, [createEnvironmentCall]), oldCallee.property));
 }
 
+function createEntryFunctionEnvironmentInitializerWrapper(entryFunction: t.FunctionDeclaration, environmentVariables: string[], scope: Scope): t.FunctionDeclaration {
+    const environmentName = scope.generateUidIdentifier("environment");
+    const tryBody: t.Statement[] = [];
+    const finallyBody: t.Statement[] = [];
+
+    tryBody.push(t.variableDeclaration("const", [ t.variableDeclarator(environmentName,
+        t.memberExpression(t.identifier("arguments"),
+            t.binaryExpression("-",
+                t.memberExpression(t.identifier("arguments"), t.identifier("length")),
+                t.numericLiteral(1)),
+            true
+        ))
+    ]));
+
+    for (const variable of environmentVariables) {
+        tryBody.push(t.expressionStatement(t.assignmentExpression("=",
+            t.identifier(variable),
+            t.memberExpression(environmentName, t.identifier(variable)))
+        ));
+
+        finallyBody.push(t.expressionStatement(t.assignmentExpression("=",
+            t.identifier(variable),
+            t.identifier("undefined"))
+        ));
+    }
+
+    tryBody.push(t.returnStatement(t.callExpression(t.memberExpression(entryFunction.id, t.identifier("apply")), [t.thisExpression(), t.identifier("arguments")])));
+
+    const body = t.blockStatement([t.tryStatement(
+        t.blockStatement(tryBody),
+        undefined,
+        t.blockStatement(finallyBody)
+    )]);
+
+    return t.functionDeclaration(scope.generateUidIdentifier("entry" + entryFunction.id.name), [], body);
+}
+
 function rewriteParallelCall(call: NodePath<t.CallExpression>, method: ParallelMethod, moduleFunctionRegistry: ModuleFunctionsRegistry, functor: NodePath<t.Function>): t.FunctionDeclaration {
     const result = transpileParallelFunctor(functor as NodePath<t.Function>, moduleFunctionRegistry, isParallelFunctor(method));
 
-    if ((result.environmentName && result.environmentVariables.length > 0)) {
-
-        const environmentProvider = createEnvironmentExtractor(result.environmentVariables, functor as NodePath<t.Function>);
-        addInEnvironmentCall(call, environmentProvider);
+    if (result.environmentVariables.length === 0) {
+        return result.transpiledFunctor;
     }
 
-    return result.transpiledFunctor;
+    const environmentProvider = createEnvironmentExtractor(result.environmentVariables, functor as NodePath<t.Function>);
+    addInEnvironmentCall(call, environmentProvider);
+
+    moduleFunctionRegistry.addEnvironmentVariables(result.environmentVariables);
+    moduleFunctionRegistry.registerFunction(result.transpiledFunctor);
+    return createEntryFunctionEnvironmentInitializerWrapper(result.transpiledFunctor, result.environmentVariables, functor.scope);
 }
 
 /**

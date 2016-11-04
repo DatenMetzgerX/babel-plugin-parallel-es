@@ -1,15 +1,9 @@
-import {ModuleFunctionsRegistry} from "./function-extractor/module-functions-registry";
+import {ModuleFunctionsRegistry} from "./module-functions-registry";
 
 /**
  * Registry that stores all modules that pass a functor to {@code parallel.*}.
  */
 export class ModulesUsingParallelRegistry {
-
-    /**
-     * The version of the current state. The version changes every time a module has been added, removed or changed.
-     * @type {number} the current version
-     */
-    public version = 0;
 
     /**
      * Returns the registered modules
@@ -27,12 +21,7 @@ export class ModulesUsingParallelRegistry {
      * @returns true if the module has been removed, false if it was not registered at all
      */
     public remove(name: string): boolean {
-        const removed = this.modulesLookupTable.delete(name);
-
-        if (removed) {
-            ++this.version;
-        }
-        return removed;
+        return this.modulesLookupTable.delete(name);
     }
 
     /**
@@ -40,7 +29,6 @@ export class ModulesUsingParallelRegistry {
      * @param module the module to register
      */
     public add(module: ModuleFunctionsRegistry): void {
-        ++this.version;
         const freezed = Object.freeze(module);
         this.modulesLookupTable.set(module.fileName, freezed);
     }
@@ -65,7 +53,6 @@ export class ModulesUsingParallelRegistry {
 
     public reset(): void {
         this.modulesLookupTable.clear();
-        this.version = 0;
     }
 }
 
