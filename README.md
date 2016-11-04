@@ -54,15 +54,25 @@ This plugin takes the Code of the *parallel-es worker* as input and inserts all 
 
 ```js
 (function () {
+	let factor;
 	function mapper(value) {
-		const _environment = arguments[arguments.length - 1];
-		return value * _environment.factor;
+		return value * factor;
+	}
+	
+	function entrymapper() {
+		try {
+			const _environment = arguments[arguments.length - 1];
+			factor = _environment.factor;
+			return mapper.apply(this, arguments);
+		} finally {
+			factor = undefined
+		}
 	}
 
 	slaveFunctionLookupTable.registerStaticFunction({
-		identifier: 'static:function-declaration-with-environment-case.js/mapper',
+		identifier: 'static:function-declaration-with-environment-case.js/entrymapper',
 		_______isFunctionId: true
-	}, mapper);
+	}, entrymapper);
 })();
 ```
 
