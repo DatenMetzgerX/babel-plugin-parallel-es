@@ -10,7 +10,7 @@ function transformData(data) {
     }
 
     return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-        identifier: "static:access-to-outer-scope-case.js/_anonymous",
+        identifier: "static:access-to-outer-scope-case.js/_entry_anonymous",
         _______isFunctionId: true
     });
 }

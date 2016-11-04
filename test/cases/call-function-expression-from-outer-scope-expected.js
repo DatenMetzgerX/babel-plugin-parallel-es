@@ -5,9 +5,9 @@ function transform(data) {
         factor: 1
     };
 
-    const initOptions = function (option) {
+    function initOptions(option) {
         return Object.assign(option, defaultOptions);
-    };
+    }
 
     function _environmentExtractor() {
         return {
@@ -16,7 +16,7 @@ function transform(data) {
     }
 
     return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-        identifier: "static:call-function-expression-from-outer-scope-case.js/_anonymous",
+        identifier: "static:call-function-expression-from-outer-scope-case.js/_entry_anonymous",
         _______isFunctionId: true
     });
 }

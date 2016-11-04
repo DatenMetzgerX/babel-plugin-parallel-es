@@ -1,6 +1,6 @@
 import * as t from "babel-types";
 import {NodePath, Visitor} from "babel-traverse";
-import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 import {ModulesUsingParallelRegistry} from "../modules-using-parallel-registry";
 import {StatefulParallelFunctorsExtractorVisitor} from "./stateful-parallel-functors-extractor-visitor";
 import {RawSourceMap} from "source-map";

@@ -16,7 +16,7 @@ function transform(data) {
     }
 
     parallel.from(data).inEnvironment(_environmentExtractor()).map({
-        identifier: "static:call-functions-from-nested-outer-scope-case.js/_anonymous",
+        identifier: "static:call-functions-from-nested-outer-scope-case.js/_entry_anonymous",
         _______isFunctionId: true
     });
 }

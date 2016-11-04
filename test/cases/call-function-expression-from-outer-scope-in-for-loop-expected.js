@@ -19,7 +19,7 @@ function transform(data) {
     }
 
     return parallel.from(data).inEnvironment(_environmentExtractor()).map({
-        identifier: "static:call-function-expression-from-outer-scope-in-for-loop-case.js/_anonymous",
+        identifier: "static:call-function-expression-from-outer-scope-in-for-loop-case.js/_entry_anonymous",
         _______isFunctionId: true
     });
 }

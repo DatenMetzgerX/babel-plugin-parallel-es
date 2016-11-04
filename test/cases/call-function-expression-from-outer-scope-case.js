@@ -5,9 +5,9 @@ function transform(data) {
         factor: 1
     };
 
-    const initOptions = function (option) {
+    function initOptions (option) {
         return Object.assign(option, defaultOptions);
-    };
+    }
 
     return parallel.from(data).map(function (option) {
         return initOptions(option);

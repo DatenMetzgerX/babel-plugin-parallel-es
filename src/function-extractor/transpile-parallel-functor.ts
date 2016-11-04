@@ -1,12 +1,12 @@
 import traverse, {NodePath, Binding, Scope} from "babel-traverse";
 import * as t from "babel-types";
-import template = require("babel-template");
-import {ModuleFunctionsRegistry} from "./module-functions-registry";
+import {ModuleFunctionsRegistry} from "../module-functions-registry";
 import {toFunctionDeclaration} from "../util";
 import {
     TranspileParallelFunctorState, ITranspileParallelFunctorState,
     TranspileParallelFunctorChildState
 } from "./transpile-parallel-functor-state";
+import {ITranspileParallelFunctorResult} from "./transpile-parallel-functor-result";
 
 /**
  * Registers the import defined by the given binding
@@ -50,64 +50,13 @@ function resolveInFunctorScope(name: string, start: NodePath<t.Node>, functorSco
     return binding;
 }
 
-/**
- * Inserts a wrapper function (declaration) that ensures, that the environment is passed as n+1 argument to the wrapped function.
- * The length of the normal arguments is determined using callee.length that returns the number of arguments expected by the function.
- * This does not consider arguments read by a function using arguments.
- * @param reference the path that references the function
- * @param functionToWrap the function to wrap
- * @param state the state
- * @returns {t.Identifier} the identifier of the wrapper function
- */
-function getReferencedFunctionWrapper(reference: NodePath<t.Identifier>, functionToWrap: t.FunctionDeclaration, state: ITranspileParallelFunctorState): t.Identifier {
-    const existingWrapper = state.referencedFunctionWrappers.get(functionToWrap.id.name);
-
-    if (existingWrapper) {
-        return existingWrapper.id;
-    }
-
-    const wrapperId = reference.scope.generateUidIdentifier(functionToWrap.id.name + "Wrapper");
-
-    // https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments Slicing arguments isn't a good idea
-    const wrapperFunction = template(`
-            function ID() {
-                "use strict";
-                var callee = CALLEE;
-                var $_args_len = arguments.length;
-                var $_len = ($_args_len < callee.length ? callee.length : $_args_len) + 1;
-                var args = new Array($_len); 
-                for(var $_i = 0; $_i < $_args_len; ++$_i) {
-                    args[$_i] = arguments[$_i];
-                }
-                
-                args[$_len - 1] = ENVIRONMENT;
-                return callee.apply(this, args);
-            }
-        `)({
-            CALLEE: functionToWrap.id,
-            ENVIRONMENT: state.environment!,
-            ID: wrapperId
-        }) as t.FunctionDeclaration;
-
-    state.referencedFunctionWrappers.set(functionToWrap.id.name, wrapperFunction);
-
-    return wrapperId;
-}
-
 function transpileReferencedFunction (referencedFunction: NodePath<t.Function>, reference: NodePath<t.Identifier>, state: ITranspileParallelFunctorState) {
     const childState = new TranspileParallelFunctorChildState(referencedFunction, state);
     const transpilationResult = _transpileParallelFunctor(referencedFunction, childState);
     state.module.registerFunction(transpilationResult.transpiledFunctor);
 
-    if (transpilationResult.environmentVariables.length > 0 && transpilationResult.environmentName) {
-        // transpile function, create wrapper only if function itself accessed any variables...
-        // However, we should register the function in all cases
-        const wrapperId = getReferencedFunctionWrapper(reference, transpilationResult.transpiledFunctor, state);
-        reference.replaceWith(wrapperId);
-    } else {
-        reference.replaceWith(transpilationResult.transpiledFunctor.id);
-        reference.skip(); // don't visit the inserted id...
-    }
+    reference.replaceWith(transpilationResult.transpiledFunctor.id);
+    reference.skip(); // don't visit the inserted id...
 }
 
 /**
@@ -118,7 +67,7 @@ function transpileReferencedFunction (referencedFunction: NodePath<t.Function>, 
  * @param state the state
  */
 function rewriteReferenceToOuterScope(path: NodePath<t.Identifier>, binding: Binding, state: ITranspileParallelFunctorState) {
-    if (!state.environment) {
+    if (!state.hasEnvironment) {
         throw path.buildCodeFrameError("Access to variables from outside of the function scope are not permitted in parallel methods not accepting an environment.");
     }
 
@@ -128,7 +77,6 @@ function rewriteReferenceToOuterScope(path: NodePath<t.Identifier>, binding: Bin
         transpileReferencedFunction(binding.path as NodePath<t.Function>, path, state);
     } else {
         state.addAccessedVariable(path.node.name);
-        path.replaceWith(t.memberExpression(state.environment, path.node));
     }
 }
 
@@ -164,41 +112,20 @@ const RewriterVisitor = {
     }
 };
 
-/**
- * Reslult of a transpiled functor
- */
-export interface ITranspileParallelFunctorResult {
-    /**
-     * Variables accessed from the functor that are defined outside from the functor. These variables
-     * must be made available in the environment variable with the name {@code environmentVariable}
-     */
-    environmentVariables: string[];
-    /**
-     * The name of the environment variable ot use, if any
-     */
-    environmentName?: t.Identifier;
-
-    /**
-     * The transpiled functor
-     */
-    transpiledFunctor: t.FunctionDeclaration;
-}
-
 function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state: ITranspileParallelFunctorState): ITranspileParallelFunctorResult {
-    const clonedFunctor = (t as any).cloneDeep(originalFunctor.node);
-    const transpiledFunctor = toFunctionDeclaration(clonedFunctor, state.scope);
+    let result = state.module.getFunctionTranspilationResult(originalFunctor.node);
 
-    traverse(transpiledFunctor, RewriterVisitor, state.scope, state);
+    if (!result) {
+        const clonedFunctor = (t as any).cloneDeep(originalFunctor.node);
+        const transpiledFunctor = toFunctionDeclaration(clonedFunctor, state.scope);
 
-    for (const wrapper of Array.from(state.referencedFunctionWrappers.values())) {
-        transpiledFunctor.body.body.unshift(wrapper);
+        traverse(transpiledFunctor, RewriterVisitor, state.scope, state);
+
+        result = { environmentVariables: state.accessedVariables, transpiledFunctor };
+        state.module.addFunctionTranspilationResult(originalFunctor.node, result);
     }
 
-    if (state.needsEnvironment) {
-        transpiledFunctor.body.body.unshift(template("const ENVIRONMENT = arguments[arguments.length - 1];")({ENVIRONMENT: state.environment!}) as t.VariableDeclaration);
-    }
-
-    return { environmentName: state.environment, environmentVariables: state.accessedVariables, transpiledFunctor };
+    return result;
 }
 
 /**
@@ -210,10 +137,7 @@ function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state:
  */
 export function transpileParallelFunctor(originalFunctor: NodePath<t.Function>, moduleFunctionRegistry: ModuleFunctionsRegistry, hasEnvironment: boolean): ITranspileParallelFunctorResult {
     const state = new TranspileParallelFunctorState(originalFunctor, moduleFunctionRegistry);
-
-    if (hasEnvironment) {
-        state.environment = state.scope.generateUidIdentifier("environment");
-    }
+    state.hasEnvironment = hasEnvironment;
 
     return _transpileParallelFunctor(originalFunctor, state);
 }
