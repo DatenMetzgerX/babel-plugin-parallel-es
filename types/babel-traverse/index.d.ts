@@ -19,4 +19,6 @@ declare module "babel-traverse" {
 
         setup(parentPath: NodePath<t.Node>, container: Object | Object[], listKey: string, key: string): void;
     }
+
+    export const visitors: {merge(visitors: Visitor[]): Visitor };
 }

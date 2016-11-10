@@ -30,7 +30,8 @@
     "@types/babel-types": "^6.7.14",
     "@types/babylon": "^6.7.14",
     "@types/source-map": "^0.1.28",
-    "babel-code-frame": "^6.16.0"
+    "babel-code-frame": "^6.16.0",
+    "babel-plugin-undeclared-variables-check": "^6.8.0"
   },
   "devDependencies": {
     "@types/chai": "^3.4.34",
