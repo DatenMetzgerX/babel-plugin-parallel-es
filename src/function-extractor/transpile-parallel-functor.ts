@@ -1,7 +1,5 @@
-import traverse, {NodePath, Binding, Scope, visitors} from "babel-traverse";
-import {OptionManager} from "babel-core";
+import traverse, {NodePath, Binding, Scope} from "babel-traverse";
 import * as t from "babel-types";
-import babelUndeclaredVariables = require("babel-plugin-undeclared-variables-check");
 import {ModuleFunctionsRegistry} from "../module-functions-registry";
 import {toFunctionDeclaration} from "../util";
 import {
@@ -83,6 +81,10 @@ function rewriteReferenceToOuterScope(path: NodePath<t.Identifier>, binding: Bin
 }
 
 const RewriterVisitor = {
+    enter(path: NodePath<t.Node>, state: ITranspileParallelFunctorState) {
+        path.hub = state.originalFunctor.hub;
+    },
+
     ThisExpression(path: NodePath<t.ThisExpression>) {
         throw path.buildCodeFrameError("This cannot be accessed inside of a function passed to a parallel method, this is always undefined.");
     },
@@ -110,21 +112,6 @@ const RewriterVisitor = {
     }
 };
 
-// This plugin ensures that no undeclared variables can be referenced.
-const undeclaredVariablesCheckPlugin = OptionManager.normalisePlugin(babelUndeclaredVariables);
-const undeclaredVariablesCheckVisitor = undeclaredVariablesCheckPlugin.visitor;
-const mergedVisitor = visitors.merge([undeclaredVariablesCheckVisitor, RewriterVisitor]);
-
-/**
- * This visitor ensures that path.hub is set by copying it from the original function... just a little trick
- */
-const VisitorWithPathWrapper  = {
-    enter(path: NodePath<t.Node>, state: ITranspileParallelFunctorState) {
-        path.hub = state.originalFunctor.hub;
-        path.traverse(mergedVisitor, state);
-    }
-};
-
 function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state: ITranspileParallelFunctorState): ITranspileParallelFunctorResult {
     let result = state.module.getFunctionTranspilationResult(originalFunctor.node);
 
@@ -132,7 +119,7 @@ function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state:
         const clonedFunctor = (t as any).cloneDeep(originalFunctor.node);
         const transpiledFunctor = toFunctionDeclaration(clonedFunctor, state.scope);
 
-        traverse(transpiledFunctor, VisitorWithPathWrapper, state.scope, state);
+        traverse(transpiledFunctor, RewriterVisitor, state.scope, state);
 
         result = { environmentVariables: state.accessedVariables, transpiledFunctor };
         state.module.addFunctionTranspilationResult(originalFunctor.node, result);

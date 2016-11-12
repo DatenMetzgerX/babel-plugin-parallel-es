@@ -11,6 +11,8 @@ export default function FunctionExtractorPlugin(): IBabelPlugin {
             parserOptions.sourceFilename = options.filename;
         },
 
+        inherits: require("babel-plugin-undeclared-variables-check"),
+
         visitor: ParallelFunctorsExtractorVisitor(SHARED_MODULES_USING_PARALLEL_REGISTRY)
     };
 }
