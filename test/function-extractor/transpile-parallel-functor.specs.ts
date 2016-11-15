@@ -110,7 +110,7 @@ describe("TranspileParallelFunctor", function () {
                 import parallel from "parallel-es";
 
                 const x = 10;
-                parallel.from([1, 2, 3]).map(value => value * 2).inEnvironment(() => ({ x }));
+                parallel.schedule(() => ({ x }));
                 `, "program.body[2].expression", "arguments[0]");
 
             // act, assert
