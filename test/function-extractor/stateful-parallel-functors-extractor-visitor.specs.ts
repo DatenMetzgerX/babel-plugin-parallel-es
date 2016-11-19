@@ -17,7 +17,7 @@ describe("StatefulParallelFunctorsExtractorVisitor", function () {
     let registerFunctionSpy: sinon.SinonStub;
     let registerEntryFunctionSpy: sinon.SinonStub;
     let scope: Scope;
-    let hasBindingStub: Sinon.SinonStub;
+    let hasBindingStub: sinon.SinonStub;
     let warnSpy: sinon.SinonSpy;
 
     beforeEach(function () {

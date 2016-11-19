@@ -67,7 +67,7 @@ describe("util", function () {
 
     describe("toFunctionDeclaration", function () {
         let scope: Scope;
-        let generateUidIdentifierStub: Sinon.SinonStub;
+        let generateUidIdentifierStub: sinon.SinonStub;
 
         beforeEach(function () {
             generateUidIdentifierStub = sinon.stub();

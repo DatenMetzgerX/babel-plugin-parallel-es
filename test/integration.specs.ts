@@ -21,7 +21,7 @@ import {SHARED_MODULES_USING_PARALLEL_REGISTRY} from "../src/modules-using-paral
  */
 describe("IntegrationTests", function () {
     const testCasesDirName = path.resolve(__dirname, "./cases");
-    let consoleWarn: Sinon.SinonSpy;
+    let consoleWarn: sinon.SinonSpy;
 
     beforeEach(function () {
         consoleWarn = sinon.spy(console, "warn");
