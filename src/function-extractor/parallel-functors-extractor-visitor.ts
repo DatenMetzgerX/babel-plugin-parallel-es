@@ -36,16 +36,21 @@ function getSourceMap(path: NodePath<t.Program>): RawSourceMap {
 export function ParallelFunctorsExtractorVisitor (modulesUsingParallelRegistry: ModulesUsingParallelRegistry): Visitor {
 
     return {
-        Program(path: NodePath<t.Program>) {
-            const options = path.hub.file.opts as TransformOptions;
-            const filename = options.filenameRelative || options.filename!;
-            const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, path.scope, getSourceMap(path));
+        Program: {
+            /**
+             * Visit in exit so that all other plugins had the time to rewrite the code before we traverse deep.
+             */
+            exit(path: NodePath<t.Program>) {
+                const options = path.hub.file.opts as TransformOptions;
+                const filename = options.filenameRelative || options.filename!;
+                const moduleFunctionRegistry = new ModuleFunctionsRegistry(filename, path.scope, getSourceMap(path));
 
-            modulesUsingParallelRegistry.remove(filename);
+                modulesUsingParallelRegistry.remove(filename);
 
-            path.traverse(StatefulParallelFunctorsExtractorVisitor, moduleFunctionRegistry);
-            if (!moduleFunctionRegistry.empty) {
-                modulesUsingParallelRegistry.add(moduleFunctionRegistry);
+                path.traverse(StatefulParallelFunctorsExtractorVisitor, moduleFunctionRegistry);
+                if (!moduleFunctionRegistry.empty) {
+                    modulesUsingParallelRegistry.add(moduleFunctionRegistry);
+                }
             }
         }
     };
