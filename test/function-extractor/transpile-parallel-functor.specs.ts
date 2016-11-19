@@ -16,7 +16,7 @@ describe("TranspileParallelFunctor", function () {
 
     let registry: ModuleFunctionsRegistry;
     let scope: Scope;
-    let hasBindingStub: Sinon.SinonStub;
+    let hasBindingStub: sinon.SinonStub;
 
     beforeEach(function () {
         hasBindingStub = sinon.stub().returns(true);

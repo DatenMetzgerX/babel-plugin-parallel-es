@@ -8,8 +8,8 @@ describe("ModuleFunctionRegistry", function () {
 
     let registry: ModuleFunctionsRegistry;
     let scope: Scope;
-    let hasBindingSpy: Sinon.SinonStub;
-    let generateUidIdentifierBasedOnNodeSpy: Sinon.SinonStub;
+    let hasBindingSpy: sinon.SinonStub;
+    let generateUidIdentifierBasedOnNodeSpy: sinon.SinonStub;
 
     beforeEach(function () {
         hasBindingSpy = sinon.stub().returns(true);
