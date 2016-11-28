@@ -119,10 +119,13 @@ function _transpileParallelFunctor(originalFunctor: NodePath<t.Function>, state:
         const clonedFunctor = (t as any).cloneDeep(originalFunctor.node);
         const transpiledFunctor = toFunctionDeclaration(clonedFunctor, state.scope);
 
+        // Register first to guarantee that recursive functions do not end in endless recursive loop
+        result = { environmentVariables: [], transpiledFunctor };
+        state.module.addFunctionTranspilationResult(originalFunctor.node, result);
+
         traverse(transpiledFunctor, RewriterVisitor, state.scope, state);
 
-        result = { environmentVariables: state.accessedVariables, transpiledFunctor };
-        state.module.addFunctionTranspilationResult(originalFunctor.node, result);
+        result.environmentVariables = state.accessedVariables;
     }
 
     return result;
