@@ -1,6 +1,6 @@
 {
   "name": "babel-plugin-parallel-es",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Babel Plugin for Parallel.ES",
   "repository": "https://github.com/DatenMetzgerX/babel-plugin-parallel-es.git",
   "main": "./dist/index.js",
