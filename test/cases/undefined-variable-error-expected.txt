@@ -1,8 +1,0 @@
-ReferenceError: undefined-variable-error-case.js: Reference to undeclared variable "x"
-  10 | 
-  11 | parallel.from([1, 2, 3]).map(function withUndefinedX(value) {
-> 12 |         return value * x; // x is not defined, error expected
-     |                        ^
-  13 |     }
-  14 | );
-  15 |
