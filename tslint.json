@@ -9,6 +9,10 @@
     ],
     "trailing-comma": [true, { "multiline": "never", "singleline": "never" }],
     "ordered-imports": false,
-    "no-string-literal": false
+    "no-string-literal": false,
+    "adjacent-overload-signatures": false,
+    "array-type": false,
+    "arrow-parens": false,
+    "max-classes-per-file": false
   }
 }
