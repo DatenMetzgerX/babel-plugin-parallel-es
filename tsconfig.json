@@ -15,12 +15,6 @@
     "lib": ["es6"],
     "typeRoots": ["types", "node_modules/@types"]
   },
-  "include": [
-    "index.ts",
-    "src/**/*.ts",
-    "test/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["index.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules"]
 }

@@ -43,14 +43,18 @@
     "babel-core": "^6.17.0",
     "chai": "^3.5.0",
     "coveralls": "^2.11.14",
+    "husky": "^0.14.3",
+    "lint-staged": "^7.0.0",
     "mocha": "^3.2.0",
     "nyc": "^10.0.0",
     "parallel-es": "^0.1.17",
+    "prettier": "^1.11.1",
     "sinon": "^1.17.6",
     "sinon-chai": "^2.8.0",
-    "ts-node": "^1.6.0",
-    "tslint": "^4.0.2",
-    "typescript": "^2.0.3"
+    "ts-node": "^5.0.1",
+    "tslint": "^5.9.1",
+    "tslint-config-prettier": "^1.9.0",
+    "typescript": "^2.7.2"
   },
   "peerDependencies": {
     "babel-core": "^6.17.0"
@@ -58,10 +62,23 @@
   "scripts": {
     "build": "tslint index.ts './src/**/*.ts' './test/**/*.ts' && tsc",
     "prepublish": "npm run-script build",
+    "precommit": "lint-staged",
+    "lint": "tslint --project .",
     "start": "tsc --watch",
     "test": "nyc mocha --inline-diffs './test/**/*.specs.ts'",
     "test:watch": "mocha --compilers ts:ts-node/register -w --inline-diffs './test/**/*.specs.ts' -w",
     "coveralljs": "cat ./coverage/lcov.info | node_modules/coveralls/bin/coveralls.js"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "tslint --fix",
+      "git add"
+    ],
+    "*.{js, json}": [
+      "prettier --write",
+      "git add"
+    ]
   },
   "author": "Micha Reiser <micha@famreiser.ch>",
   "license": "MIT"
