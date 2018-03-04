@@ -121,7 +121,7 @@ describe("TranspileParallelFunctor", function() {
       // assert
       expect(registry.functions).to.have.length(1);
       expect(registry.functions[0])
-        .to.have.deep.property("id.name")
+        .to.have.nested.property("id.name")
         .that.equals("helper");
     });
 
