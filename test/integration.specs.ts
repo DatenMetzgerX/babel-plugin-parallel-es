@@ -85,7 +85,7 @@ describe("IntegrationTests", function() {
 
           const workerExpectations = expectedWorker!.split("/* SPLIT ASSERTION */");
           for (const workerExpectation of workerExpectations) {
-            expect(workerResult.code).to.include(
+            expect(workerResult.code).to.string(
               workerExpectation!.trim(),
               `Worker Code \n${workerResult.code}\n did not include ${workerExpectation}`
             );

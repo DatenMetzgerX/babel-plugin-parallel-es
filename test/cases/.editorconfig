@@ -2,7 +2,7 @@
 insert_final_newline = false
 
 [*-expected-worker.js]
-indent_size = 4
+indent_size = 2
 
 [*.txt]
 trim_trailing_whitespace = false
