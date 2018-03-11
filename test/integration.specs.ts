@@ -69,7 +69,7 @@ describe("IntegrationTests", function() {
           plugins: [FunctionExtractorPlugin()]
         });
 
-        const workerResult = transformFileSync(require.resolve("parallel-es/dist/worker-slave.parallel-es6.js"), {
+        const workerResult = transformFileSync(require.resolve("parallel-es/dist/browser/slave.js"), {
           babelrc: false,
           plugins: [WorkerReWriterPlugin()]
         });
