@@ -1,12 +1,13 @@
 /// <reference types="../../node_modules/@types/babel-core" />
 
-import {Visitor} from 'babel-traverse';
+import { Visitor } from "babel-traverse";
 
 declare module "babel-core" {
-    export interface Plugin {
-        visitor: Visitor;
-    }
-    export class OptionManager {
-        static normalisePlugin(plugin: any): Plugin;
-    }
+  // tslint:disable-next-line:interface-name
+  export interface Plugin {
+    visitor: Visitor;
+  }
+  export class OptionManager {
+    public static normalisePlugin(plugin: any): Plugin;
+  }
 }
